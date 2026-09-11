@@ -1,0 +1,14 @@
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+.git
+.github
+.code-review-graph
+.agents
+*.md
+!README.md
+scratch
+creator-haven-38-main
+load-test.js
+test-all-routes.js

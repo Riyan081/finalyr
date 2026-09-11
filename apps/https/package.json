@@ -1,0 +1,35 @@
+{
+  "name": "https",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@repo/typescript-config": "*"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun dist/index.js"
+  },
+  "dependencies": {
+    "@repo/auth": "*",
+    "@repo/common": "*",
+    "@repo/db": "*",
+    "@repo/storage": "*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "better-auth": "^1.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "@polar-sh/sdk": "^0.34.0",
+    "razorpay": "^2.9.6",
+    "zod": "^3.23.8"
+  }
+}

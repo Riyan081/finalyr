@@ -1,0 +1,535 @@
+// ═══════════════════════════════════════════════════════════════════
+// Gumroad Clone — Prisma Schema
+// ═══════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Better Auth Core Models ───────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // ─ Roles & Permissions
+  role String @default("user") // "user" | "creator" | "admin"
+
+  // ─ Two-Factor Authentication
+  twoFactorEnabled Boolean? @default(false)
+
+  // ─ Admin plugin fields
+  banned    Boolean?  @default(false)
+  banReason String?
+  banExpires DateTime?
+
+  // ─ Creator Profile
+  username      String?  @unique // gumroad.com/username
+  bio           String?
+  coverUrl      String?
+  accentColor   String?  @default("#FF90E8")
+  customDomain  String?  @unique
+  socialTwitter  String?
+  socialYoutube  String?
+  socialInstagram String?
+  socialWebsite  String?
+
+  // ─ Payout Settings
+  payoutSchedule      String   @default("weekly") // "weekly" | "monthly"
+
+  // ─ Polar (international payments)
+  polarAccountId      String?  @unique
+  polarOnboarded      Boolean  @default(false)
+
+  // ─ Razorpay (India / UPI)
+  razorpayAccountId   String?  @unique
+  razorpayOnboarded   Boolean  @default(false)
+
+  // ─ Relations
+  sessions    Session[]
+  accounts    Account[]
+  products    Product[]     @relation("CreatorProducts")
+  orders      Order[]       @relation("CustomerOrders")
+  followers   Follower[]    @relation("CreatorFollowers")
+  following   Follower[]    @relation("FollowerUser")
+  payouts     Payout[]
+  reviews     Review[]
+  affiliates  Affiliate[]   @relation("AffiliateOwner")
+  affiliateOf Affiliate[]   @relation("AffiliateUser")
+  workflows   Workflow[]
+  memberships Membership[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+
+  activeOrganizationId String?
+  impersonatedBy       String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issuer                String?
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+model TwoFactor {
+  id          String @id
+  secret      String
+  backupCodes String
+  userId      String
+
+  @@map("twoFactor")
+}
+
+// ─── Products ──────────────────────────────────────────────────────
+
+model Product {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ─ Creator
+  creatorId String
+  creator   User   @relation("CreatorProducts", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  // ─ Core
+  name        String
+  slug        String
+  description String?  @db.Text // Rich text / markdown
+  summary     String?  // Short description for cards
+
+  // ─ Pricing
+  priceCents         Int     @default(0)
+  currency           String  @default("usd")
+  isPayWhatYouWant   Boolean @default(false)
+  minPriceCents      Int     @default(0)
+  suggestedPriceCents Int?
+
+  // ─ Product Type
+  productType String @default("digital") // "digital" | "membership" | "course" | "bundle"
+
+  // ─ Membership Settings
+  recurrence String? // "monthly" | "quarterly" | "yearly"
+
+  // ─ Media
+  thumbnailUrl String?
+  coverUrl     String?
+  previewUrl   String?
+
+  // ─ Settings
+  status           String  @default("draft") // "draft" | "published" | "archived"
+  isListedOnDiscover Boolean @default(true)
+  maxPurchaseCount  Int?    // Limit total sales
+  callToAction     String  @default("I want this!")
+
+  // ─ Categorization
+  category String?
+  tags     String[] // PostgreSQL array of tags
+
+  // ─ Software-specific
+  systemRequirements String? @db.Text // Required when category = "software"
+
+  // ─ Stats (denormalized for read performance)
+  salesCount   Int     @default(0)
+  revenueCents BigInt  @default(0)
+  ratingAvg    Float   @default(0)
+  ratingCount  Int     @default(0)
+  viewCount    Int     @default(0)
+
+  publishedAt DateTime?
+
+  // ─ Relations
+  files         ProductFile[]
+  variants      ProductVariant[]
+  orders        Order[]
+  discountCodes DiscountCode[]
+  licenseKeys   LicenseKey[]
+  reviews       Review[]
+  affiliates    Affiliate[]
+  memberships   Membership[]
+
+  @@unique([creatorId, slug])
+  @@index([status])
+  @@index([category])
+  @@index([creatorId])
+  @@index([productType])
+  @@map("product")
+}
+
+model ProductFile {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // ─ File Metadata
+  fileName      String
+  fileKey       String  // S3/MinIO object key
+  fileSizeBytes BigInt
+  fileType      String  // MIME type
+  sortOrder     Int     @default(0)
+
+  // ─ Content Dripping (for courses)
+  availableAfterDays Int @default(0)
+
+  @@index([productId])
+  @@map("product_file")
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name             String
+  priceCents       Int
+  description      String?
+  sortOrder        Int     @default(0)
+  maxPurchaseCount Int?
+
+  orders Order[]
+
+  @@index([productId])
+  @@map("product_variant")
+}
+
+// ─── Orders & Payments ─────────────────────────────────────────────
+
+model Order {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // ─ Buyer
+  customerId    String?
+  customer      User?   @relation("CustomerOrders", fields: [customerId], references: [id])
+  customerEmail String
+  customerName  String?
+
+  // ─ Product
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  creatorId String
+
+  // ─ Payment
+  amountCents          Int
+  currency             String @default("usd")
+  platformFeeCents     Int    @default(0) // 10% platform cut
+  processingFeeCents   Int    @default(0) // Stripe fee
+  creatorRevenueCents  Int    @default(0) // amount - all fees
+
+  // ─ Payment Provider
+  paymentProvider       String  @default("polar")  // "polar" | "razorpay"
+
+  // ─ Polar
+  polarOrderId          String?
+  polarCheckoutId       String?
+
+  // ─ Razorpay
+  razorpayOrderId       String?
+  razorpayPaymentId     String?
+  razorpaySignature     String?
+
+  // ─ Status
+  status String @default("pending") // "pending" | "completed" | "refunded" | "disputed" | "failed"
+
+  // ─ Affiliate
+  affiliateId       String?
+  affiliate         Affiliate? @relation(fields: [affiliateId], references: [id])
+  affiliateFeeCents Int        @default(0)
+
+  // ─ Discount
+  discountCodeId       String?
+  discountCode         DiscountCode? @relation(fields: [discountCodeId], references: [id])
+  discountAmountCents  Int           @default(0)
+
+  // ─ Tax
+  taxCents   Int     @default(0)
+  taxCountry String?
+  taxRegion  String?
+
+  // ─ Download
+  downloadCount Int @default(0)
+
+  // ─ Custom Fields (JSON for flexibility)
+  customFields Json?
+
+  // ─ Geo
+  ipAddress String?
+  country   String?
+
+  refundedAt DateTime?
+
+  // ─ Relations
+  licenseKeys LicenseKey[]
+  review      Review?
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([creatorId])
+  @@index([status])
+  @@index([customerEmail])
+  @@map("order")
+}
+
+// ─── Memberships / Subscriptions ───────────────────────────────────
+
+model Membership {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  customerId String
+  customer   User    @relation(fields: [customerId], references: [id])
+  productId  String
+  product    Product @relation(fields: [productId], references: [id])
+  creatorId  String
+
+  // ─ Stripe Subscription
+  stripeSubscriptionId String? @unique
+
+  // ─ Status
+  status String @default("active") // "active" | "paused" | "cancelled" | "past_due"
+
+  // ─ Billing Period
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+
+  cancelledAt DateTime?
+
+  @@index([customerId])
+  @@index([productId])
+  @@map("membership")
+}
+
+// ─── License Keys ──────────────────────────────────────────────────
+
+model LicenseKey {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  licenseKey String  @unique
+  uses       Int     @default(0)
+  maxUses    Int     @default(5)
+  isDisabled Boolean @default(false)
+
+  @@index([productId])
+  @@map("license_key")
+}
+
+// ─── Discount Codes ────────────────────────────────────────────────
+
+model DiscountCode {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  creatorId String
+
+  code          String
+  discountType  String @default("percentage") // "percentage" | "fixed"
+  discountValue Int    // cents or percentage (0-100)
+
+  maxUses     Int?
+  currentUses Int @default(0)
+
+  validFrom  DateTime  @default(now())
+  validUntil DateTime?
+
+  orders Order[]
+
+  @@unique([productId, code])
+  @@map("discount_code")
+}
+
+// ─── Affiliates ────────────────────────────────────────────────────
+
+model Affiliate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  creatorId       String
+  creator         User    @relation("AffiliateOwner", fields: [creatorId], references: [id])
+  affiliateUserId String
+  affiliateUser   User    @relation("AffiliateUser", fields: [affiliateUserId], references: [id])
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
+
+  commissionPercent Int @default(10) // 1-75%
+  cookieDays        Int @default(30)
+
+  // ─ Stats
+  clicks      Int    @default(0)
+  sales       Int    @default(0)
+  revenueCents BigInt @default(0)
+
+  status String @default("active") // "pending" | "active" | "disabled"
+
+  orders Order[]
+
+  @@index([affiliateUserId])
+  @@index([productId])
+  @@map("affiliate")
+}
+
+// ─── Followers ─────────────────────────────────────────────────────
+
+model Follower {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  creatorId     String
+  creator       User   @relation("CreatorFollowers", fields: [creatorId], references: [id], onDelete: Cascade)
+  followerEmail String
+  followerId    String?
+  followerUser  User?  @relation("FollowerUser", fields: [followerId], references: [id])
+
+  source       String  @default("profile") // "profile" | "checkout" | "embed"
+  isSubscribed Boolean @default(true)
+
+  @@unique([creatorId, followerEmail])
+  @@index([creatorId])
+  @@map("follower")
+}
+
+// ─── Payouts ───────────────────────────────────────────────────────
+
+model Payout {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  creatorId String
+  creator   User   @relation(fields: [creatorId], references: [id])
+
+  amountCents BigInt
+  currency    String @default("usd")
+
+  stripeTransferId String?
+
+  status String @default("pending") // "pending" | "processing" | "completed" | "failed"
+
+  periodStart DateTime?
+  periodEnd   DateTime?
+  completedAt DateTime?
+
+  @@index([creatorId])
+  @@map("payout")
+}
+
+// ─── Reviews ───────────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User    @relation(fields: [customerId], references: [id])
+  orderId    String  @unique
+  order      Order   @relation(fields: [orderId], references: [id])
+
+  rating  Int    // 1-5
+  content String?
+
+  isVerified Boolean @default(true)
+
+  @@index([productId])
+  @@map("review")
+}
+
+// ─── Email Workflows ───────────────────────────────────────────────
+
+model Workflow {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  creatorId String
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  name            String
+  triggerType     String // "purchase" | "signup" | "free_download"
+  triggerProductId String?
+
+  isActive Boolean @default(true)
+
+  steps WorkflowStep[]
+
+  @@index([creatorId])
+  @@map("workflow")
+}
+
+model WorkflowStep {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  stepOrder  Int
+  delayHours Int    @default(0)
+  subject    String
+  body       String @db.Text
+
+  @@index([workflowId])
+  @@map("workflow_step")
+}

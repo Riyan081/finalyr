@@ -1,0 +1,28 @@
+FROM oven/bun:1
+
+WORKDIR /usr/src/app
+
+# Copy workspace config
+COPY ./package.json ./package.json
+COPY ./bun.lock ./bun.lock
+COPY ./turbo.json ./turbo.json
+
+# Copy all shared packages (db, auth, common, storage, etc.)
+COPY ./packages ./packages
+
+# Copy the backend app
+COPY ./apps/https ./apps/https
+
+# Install all dependencies
+RUN bun install
+
+# Generate Prisma client
+RUN bun run db:generate
+
+# Pre-build TypeScript → dist/ so we don't recompile on every container restart
+RUN cd apps/https && bun run build
+
+EXPOSE 3002
+
+# Run the pre-built output directly
+CMD ["bun", "apps/https/dist/index.js"]

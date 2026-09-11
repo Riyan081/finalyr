@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 50 6% 7%;
+    --foreground: 50 6% 90%;
+
+    --card: 50 4% 11%;
+    --card-foreground: 50 6% 90%;
+
+    --popover: 50 4% 11%;
+    --popover-foreground: 50 6% 90%;
+
+    --primary: 316 100% 78%;
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 45 100% 50%;
+    --secondary-foreground: 0 0% 0%;
+
+    --muted: 50 4% 16%;
+    --muted-foreground: 50 6% 55%;
+
+    --accent: 316 100% 78%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 50 6% 25%;
+    --input: 50 6% 25%;
+    --ring: 316 100% 78%;
+
+    --radius: 0px;
+
+    /* Custom DigiStore tokens */
+    --digi-pink: 316 100% 78%;
+    --digi-yellow: 45 100% 50%;
+    --digi-bg: 50 6% 7%;
+    --digi-lavender: 260 60% 70%;
+    --digi-mint: 150 50% 55%;
+    --digi-peach: 20 80% 65%;
+
+    --shadow-brutal: 4px 4px 0px hsl(50 6% 25%);
+    --shadow-brutal-lg: 6px 6px 0px hsl(50 6% 25%);
+    --shadow-brutal-hover: 6px 6px 0px hsl(50 6% 30%);
+
+    --border-width: 2px;
+
+    --font-heading: 'Outfit', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer components {
+  .brutal-border {
+    border: var(--border-width) solid hsl(var(--border));
+  }
+
+  .brutal-shadow {
+    box-shadow: var(--shadow-brutal);
+  }
+
+  .brutal-shadow-lg {
+    box-shadow: var(--shadow-brutal-lg);
+  }
+
+  .brutal-card {
+    @apply brutal-border brutal-shadow bg-card;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  .brutal-card:hover {
+    box-shadow: var(--shadow-brutal-hover);
+    transform: translate(-2px, -2px);
+  }
+
+  .brutal-btn {
+    @apply brutal-border brutal-shadow font-semibold px-6 py-3 cursor-pointer;
+    transition: box-shadow 0.1s ease, transform 0.1s ease;
+  }
+
+  .brutal-btn:hover {
+    box-shadow: var(--shadow-brutal-hover);
+    transform: translate(-2px, -2px);
+  }
+
+  .brutal-btn:active {
+    box-shadow: 2px 2px 0px hsl(var(--border));
+    transform: translate(1px, 1px);
+  }
+
+  .text-gradient-pink {
+    background: linear-gradient(135deg, hsl(var(--digi-pink)), hsl(var(--digi-lavender)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
