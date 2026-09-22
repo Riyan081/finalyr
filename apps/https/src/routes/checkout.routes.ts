@@ -173,14 +173,19 @@ router.get("/download/:orderId", async (req: Request, res: Response) => {
   sendSuccess(res, "Download token generated", result);
 });
 
-// GET /api/checkout/file?token=...&fileId=... — stream file to buyer
+// GET /api/checkout/file?token=...&fileId=... — get presigned download URL for a file
 router.get("/file", async (req: Request, res: Response) => {
   const { token, fileId } = req.query as { token: string; fileId: string };
-  const { fileKey, fileName, fileType } = await downloadService.getFileDownloadUrl(token, fileId);
 
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-  res.setHeader("Content-Type", fileType);
-  res.redirect(302, `/api/files/stream/${fileKey}`);
+  if (!token || !fileId) {
+    res.status(400).json({ error: "BAD_REQUEST", message: "token and fileId are required" });
+    return;
+  }
+
+  const { downloadUrl, fileName, fileType } = await downloadService.getFileDownloadUrl(token, fileId);
+
+  // Redirect buyer to the presigned S3 download URL
+  res.redirect(302, downloadUrl);
 });
 
 export default router;

@@ -35,6 +35,8 @@ const PRODUCT_LIST_SELECT = {
   ratingAvg: true,
   ratingCount: true,
   viewCount: true,
+  recurrence: true,
+  bundledProductIds: true,
   createdAt: true,
   updatedAt: true,
   publishedAt: true,
@@ -70,6 +72,12 @@ export const productService = {
     const slug = generateSlug(data.name);
     const uniqueSlug = await ensureUniqueSlug(slug, creatorId);
 
+    // Validate product type specific fields
+    if (data.productType === "membership" && !data.recurrence) {
+      // Default to monthly if not provided
+      data.recurrence = "monthly";
+    }
+
     const product = await prisma.product.create({
       data: {
         creatorId,
@@ -90,6 +98,7 @@ export const productService = {
         category: data.category,
         tags: data.tags,
         systemRequirements: data.systemRequirements,
+        bundledProductIds: (data as any).bundledProductIds ?? [],
         status: "draft",
       },
       include: PRODUCT_DETAIL_INCLUDE,
@@ -134,6 +143,46 @@ export const productService = {
     });
 
     return product;
+  },
+
+  /**
+   * Update bundled product IDs for a bundle product.
+   */
+  async updateBundledProducts(productId: string, creatorId: string, bundledProductIds: string[]) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, creatorId: true, productType: true },
+    });
+
+    if (!product) throw new NotFoundError("Product");
+    if (product.creatorId !== creatorId) throw new ForbiddenError("You do not own this product");
+    if (product.productType !== "bundle") throw new BadRequestError("Only bundle products can have bundled products");
+
+    // Validate that all referenced products exist and belong to this creator
+    if (bundledProductIds.length > 0) {
+      const validProducts = await prisma.product.findMany({
+        where: {
+          id: { in: bundledProductIds },
+          creatorId,
+          status: { in: ["draft", "published"] },
+        },
+        select: { id: true },
+      });
+
+      const validIds = new Set(validProducts.map((p) => p.id));
+      const invalidIds = bundledProductIds.filter((id) => !validIds.has(id));
+      if (invalidIds.length > 0) {
+        throw new BadRequestError(`Products not found or not owned by you: ${invalidIds.join(", ")}`);
+      }
+    }
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: { bundledProductIds },
+      include: PRODUCT_DETAIL_INCLUDE,
+    });
+
+    return updated;
   },
 
   /**
@@ -227,7 +276,8 @@ export const productService = {
   },
 
   /**
-   * Publish a product. Validates that required fields are set.
+   * Publish a product. Validates that required fields are set,
+   * including type-specific validation.
    */
   async publish(productId: string, creatorId: string) {
     const product = await prisma.product.findUnique({
@@ -245,7 +295,7 @@ export const productService = {
       throw new BadRequestError("Product is already published");
     }
 
-    // Validate required fields for publishing
+    // ── Common validation ──
     if (!product.name || product.name.trim().length === 0) {
       throw new BadRequestError("Product must have a name to publish");
     }
@@ -255,11 +305,36 @@ export const productService = {
       );
     }
 
+    // ── Type-specific validation ──
+
     // Software products must have system requirements
     if (product.category === "software" && !product.systemRequirements?.trim()) {
       throw new BadRequestError(
         "Software products must specify system/device requirements before publishing"
       );
+    }
+
+    // Membership products must have a recurrence
+    if (product.productType === "membership" && !product.recurrence) {
+      throw new BadRequestError(
+        "Membership products must have a billing frequency (monthly, quarterly, or yearly)"
+      );
+    }
+
+    // Bundle products should reference at least one other product
+    if (product.productType === "bundle" && product.bundledProductIds.length === 0) {
+      throw new BadRequestError(
+        "Bundle products must include at least one product"
+      );
+    }
+
+    // Course and Digital products should have at least one file
+    if (
+      (product.productType === "digital" || product.productType === "course") &&
+      product.files.length === 0
+    ) {
+      // Warning only — don't block publishing, but log
+      console.warn(`[Product] Publishing ${product.productType} product "${product.name}" without files`);
     }
 
     const updated = await prisma.product.update({
@@ -325,5 +400,40 @@ export const productService = {
     }
 
     return product;
+  },
+
+  /**
+   * Get bundled products for a bundle product (public).
+   */
+  async getBundledProducts(productId: string) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { bundledProductIds: true, productType: true },
+    });
+
+    if (!product || product.productType !== "bundle") return [];
+    if (product.bundledProductIds.length === 0) return [];
+
+    const bundledProducts = await prisma.product.findMany({
+      where: {
+        id: { in: product.bundledProductIds },
+        status: "published",
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        summary: true,
+        thumbnailUrl: true,
+        priceCents: true,
+        currency: true,
+        productType: true,
+        creator: {
+          select: { username: true, name: true },
+        },
+      },
+    });
+
+    return bundledProducts;
   },
 };

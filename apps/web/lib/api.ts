@@ -274,6 +274,7 @@ export interface ApiProduct {
   category?: string | null;
   tags: string[];
   systemRequirements?: string | null;
+  bundledProductIds?: string[];
   salesCount: number;
   revenueCents: number;
   ratingAvg: number;
@@ -319,6 +320,7 @@ export interface DiscoverProduct {
   currency: string;
   isPayWhatYouWant: boolean;
   productType: string;
+  recurrence?: string | null;
   salesCount: number;
   ratingAvg: number;
   category?: string | null;
@@ -330,11 +332,24 @@ export interface DiscoverProduct {
   };
 }
 
+export interface BundledProduct {
+  id: string;
+  name: string;
+  slug: string;
+  summary?: string | null;
+  thumbnailUrl?: string | null;
+  priceCents: number;
+  currency: string;
+  productType: string;
+  creator: { username?: string | null; name: string };
+}
+
 export interface PublicProduct extends ApiProduct {
   fileCount: number;
   fileSizeTotal: number;
   reviewCount: number;
   reviews?: ProductReview[];
+  bundledProducts?: BundledProduct[];
 }
 
 export interface ProductReview {
@@ -500,6 +515,7 @@ export interface CreateProductPayload {
   category?: string | null;
   tags?: string[];
   systemRequirements?: string | null;
+  bundledProductIds?: string[];
 }
 
 export interface SetupCreatorPayload {
@@ -639,6 +655,17 @@ export const variantsApi = {
   },
 };
 
+export const bundleApi = {
+  get: async (productId: string) => {
+    const res = await api.get(`/api/products/${productId}/bundle`);
+    return unwrap<BundledProduct[]>(res);
+  },
+  update: async (productId: string, bundledProductIds: string[]) => {
+    const res = await api.put(`/api/products/${productId}/bundle`, { bundledProductIds });
+    return unwrap<ApiProduct>(res);
+  },
+};
+
 export const fileUploadApi = {
   uploadThumbnail: async (productId: string, file: File) => {
     const form = new FormData();
@@ -712,3 +739,80 @@ export interface DiscountCode { id: string; code: string; discountType: "percent
 export interface DiscountValidation { discount: { id: string; code: string; type: "percentage" | "fixed"; value: number; }; originalPriceCents: number; discountedPriceCents: number; savingsCents: number; }
 export interface CreateDiscountPayload { productId: string; code: string; discountType: "percentage" | "fixed"; discountValue: number; maxUses?: number | null; validUntil?: string | null; }
 export interface CreateVariantPayload { name: string; priceCents: number; description?: string; sortOrder?: number; }
+
+// ─── Library Types ──────────────────────────────────────────────────
+
+export interface LibraryItem {
+  orderId: string;
+  purchasedAt: string;
+  amountCents: number;
+  currency: string;
+  status: string;
+  accessStatus: "active" | "expired" | "cancelled" | "refunded";
+  hasUpdates: boolean;
+  paymentProvider: string;
+  variant: string | null;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    summary?: string | null;
+    thumbnailUrl?: string | null;
+    productType: string;
+    recurrence?: string | null;
+    fileCount: number;
+    files: Array<{ id: string; fileName: string; fileSizeBytes: string; fileType: string }>;
+    creator: { id: string; name: string; username?: string | null; image?: string | null };
+  };
+  licenseKeys: Array<{ licenseKey: string; uses: number; maxUses: number; isDisabled: boolean }>;
+  membership: {
+    id: string;
+    status: string;
+    currentPeriodStart: string;
+    currentPeriodEnd: string;
+    cancelledAt?: string | null;
+  } | null;
+}
+
+export interface LibraryResponse {
+  items: LibraryItem[];
+  creators: Array<{ id: string; name: string; username?: string | null; image?: string | null }>;
+  pagination: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
+}
+
+export interface DownloadToken {
+  token: string;
+  expiresAt: string;
+  order: {
+    id: string;
+    productName: string;
+    files: Array<{ id: string; fileName: string; fileSizeBytes: string; fileType: string }>;
+    licenseKeys: Array<{ licenseKey: string; uses: number; maxUses: number; isDisabled: boolean }>;
+  };
+}
+
+export const libraryApi = {
+  getLibrary: async (query?: { page?: number; limit?: number; search?: string; type?: string; creatorId?: string }) => {
+    const params = new URLSearchParams();
+    if (query?.page) params.set("page", query.page.toString());
+    if (query?.limit) params.set("limit", query.limit.toString());
+    if (query?.search) params.set("search", query.search);
+    if (query?.type) params.set("type", query.type);
+    if (query?.creatorId) params.set("creatorId", query.creatorId);
+    const qs = params.toString();
+    const res = await api.get(`/api/library${qs ? `?${qs}` : ""}`);
+    return unwrap<LibraryResponse>(res);
+  },
+  getDownloadToken: async (orderId: string) => {
+    const res = await api.get(`/api/library/${orderId}/download`);
+    return unwrap<DownloadToken>(res);
+  },
+  cancelMembership: async (membershipId: string) => {
+    const res = await api.post(`/api/library/membership/${membershipId}/cancel`);
+    return unwrap<any>(res);
+  },
+  restartMembership: async (membershipId: string) => {
+    const res = await api.post(`/api/library/membership/${membershipId}/restart`);
+    return unwrap<any>(res);
+  },
+};

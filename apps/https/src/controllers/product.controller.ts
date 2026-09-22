@@ -61,4 +61,26 @@ export const productController = {
     const product = await productService.publish(req.params.id as string, creatorId);
     sendSuccess(res, "Product published", product);
   },
+
+  /**
+   * PUT /api/products/:id/bundle — Update bundled product IDs.
+   */
+  updateBundle: async (req: Request, res: Response) => {
+    const creatorId = (req as any).user.id;
+    const { bundledProductIds } = req.body;
+    const product = await productService.updateBundledProducts(
+      req.params.id as string,
+      creatorId,
+      bundledProductIds || []
+    );
+    sendSuccess(res, "Bundle updated", product);
+  },
+
+  /**
+   * GET /api/products/:id/bundle — Get bundled products (public).
+   */
+  getBundledProducts: async (req: Request, res: Response) => {
+    const products = await productService.getBundledProducts(req.params.id as string);
+    sendSuccess(res, "Bundled products", products);
+  },
 };

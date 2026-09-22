@@ -36,6 +36,28 @@ export const publicService = {
       0
     );
 
+    // Fetch bundled products for bundles
+    let bundledProducts: any[] = [];
+    if (product.productType === "bundle" && product.bundledProductIds.length > 0) {
+      bundledProducts = await prisma.product.findMany({
+        where: {
+          id: { in: product.bundledProductIds },
+          status: "published",
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          summary: true,
+          thumbnailUrl: true,
+          priceCents: true,
+          currency: true,
+          productType: true,
+          creator: { select: { username: true, name: true } },
+        },
+      });
+    }
+
     return {
       ...product,
       revenueCents: Number(product.revenueCents),
@@ -43,6 +65,7 @@ export const publicService = {
       fileCount: product.files.length,
       fileSizeTotal,
       reviewCount: product._count.reviews,
+      bundledProducts,
       files: product.files.map((f: any) => ({
         id: f.id,
         fileName: f.fileName,
@@ -70,6 +93,7 @@ export const publicService = {
           id: true, name: true, slug: true, summary: true, thumbnailUrl: true,
           priceCents: true, currency: true, isPayWhatYouWant: true,
           productType: true, salesCount: true, ratingAvg: true,
+          recurrence: true,
           _count: { select: { reviews: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -94,6 +118,7 @@ export const publicService = {
         id: true, name: true, slug: true, summary: true, thumbnailUrl: true,
         priceCents: true, currency: true, isPayWhatYouWant: true,
         productType: true, salesCount: true, ratingAvg: true,
+        recurrence: true,
         creator: { select: { name: true, username: true, image: true } },
       },
       orderBy: [{ salesCount: "desc" }, { createdAt: "desc" }],

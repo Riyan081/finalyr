@@ -5,7 +5,10 @@ import {
   validateFileUpload,
   deleteFile,
   ensureBucketExists,
+  generateDownloadUrl,
 } from "@repo/storage";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { storageClient, BUCKET_NAME } from "@repo/storage/client";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.js";
 
 // ─── Allowed MIME Types ──────────────────────────────────────────
@@ -24,7 +27,7 @@ const MAX_THUMBNAIL_SIZE = 10 * 1024 * 1024; // 10 MB
 export const fileUploadService = {
   /**
    * Upload a product file (the actual deliverable).
-   * Generates a presigned URL, uploads via fetch, creates ProductFile record.
+   * Uploads server-side via S3 PutObject (not presigned URL) to avoid key mismatch.
    */
   async uploadProductFile(
     productId: string,
@@ -60,25 +63,22 @@ export const fileUploadService = {
       .replace(/\s+/g, "_")
       .substring(0, 200);
 
-    // Generate presigned upload URL and file key using storage package
-    // Note: generateUploadUrl(productId, fileName, fileType, fileSizeBytes)
+    // Ensure bucket exists
     await ensureBucketExists();
-    const { uploadUrl, fileKey } = await generateUploadUrl(
-      productId,
-      safeName,
-      file.mimetype,
-      file.size
-    );
 
-    // Upload file buffer to MinIO via presigned URL
-    await fetch(uploadUrl, {
-      method: "PUT",
-      body: new Uint8Array(file.buffer),
-      headers: {
-        "Content-Type": file.mimetype,
-        "Content-Length": String(file.size),
-      },
-    });
+    // Generate a unique file key
+    const fileKey = generateFileKey(productId, safeName);
+
+    // Upload directly to S3 (server-side) — avoids presigned URL key mismatch
+    await storageClient.send(
+      new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: fileKey,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        ContentLength: file.size,
+      })
+    );
 
     // Get current max sort order
     const lastFile = await prisma.productFile.findFirst({
@@ -152,6 +152,7 @@ export const fileUploadService = {
 
   /**
    * Upload or replace a product thumbnail image.
+   * Uses direct S3 upload (not presigned URL) to ensure the DB key matches.
    */
   async uploadThumbnail(
     productId: string,
@@ -181,32 +182,42 @@ export const fileUploadService = {
       throw new BadRequestError("Thumbnail size exceeds the 10 MB limit");
     }
 
-    // Use generateFileKey from storage package for consistency
-    const fileKey = generateFileKey(productId, `thumbnail.${file.mimetype.split("/")[1] || "png"}`);
-
     await ensureBucketExists();
 
-    // Generate presigned URL for thumbnail
-    const { uploadUrl } = await generateUploadUrl(
-      productId,
-      `thumbnail.${file.mimetype.split("/")[1] || "png"}`,
-      file.mimetype,
-      file.size
+    // Generate a single file key and use it consistently
+    const ext = file.mimetype.split("/")[1] || "png";
+    const fileKey = generateFileKey(productId, `thumbnail.${ext}`);
+
+    // Upload directly to S3 — this ensures the key we save matches the key we uploaded to
+    await storageClient.send(
+      new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: fileKey,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        ContentLength: file.size,
+      })
     );
 
-    await fetch(uploadUrl, {
-      method: "PUT",
-      body: new Uint8Array(file.buffer),
-      headers: {
-        "Content-Type": file.mimetype,
-        "Content-Length": String(file.size),
-      },
-    });
-
     // Build the public URL for the thumbnail
+    // Use the S3 endpoint directly (MinIO supports public access)
     const s3Endpoint = process.env.S3_ENDPOINT || "http://localhost:9000";
     const bucket = process.env.S3_BUCKET || "gumroad-files";
     const thumbnailUrl = `${s3Endpoint}/${bucket}/${fileKey}`;
+
+    // Delete old thumbnail from storage if it exists
+    if (product.thumbnailUrl) {
+      try {
+        // Extract old key from URL
+        const oldUrl = product.thumbnailUrl;
+        const oldKeyMatch = oldUrl.match(new RegExp(`${bucket}/(.+)$`));
+        if (oldKeyMatch?.[1]) {
+          await deleteFile(oldKeyMatch[1]);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
 
     // Update product with thumbnail URL
     await prisma.product.update({

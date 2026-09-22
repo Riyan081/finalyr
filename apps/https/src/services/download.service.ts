@@ -1,6 +1,8 @@
 import prisma from "@repo/db/client";
 import crypto from "crypto";
+import { generateDownloadUrl } from "@repo/storage";
 import { NotFoundError, ForbiddenError } from "../utils/errors.js";
+import { pdfStampingService } from "./pdf-stamping.service.js";
 
 /**
  * Download service — generates time-limited signed download tokens.
@@ -52,12 +54,9 @@ export const downloadService = {
     }
 
     // Generate token
-    const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-    // Store token (we use the Order model for this — add to a simple cache)
-    // In production this would go in Redis. For now we embed it in the URL
-    // and verify using HMAC signature
+    // Store token — use HMAC signature for stateless verification
     const payload = `${orderId}:${expiresAt.getTime()}`;
     const secret = process.env.DOWNLOAD_TOKEN_SECRET || "download-secret-change-me";
     const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
@@ -81,7 +80,7 @@ export const downloadService = {
   },
 
   /**
-   * Verify a download token and return the order.
+   * Verify a download token and return the orderId.
    */
   async verifyToken(token: string) {
     const secret = process.env.DOWNLOAD_TOKEN_SECRET || "download-secret-change-me";
@@ -106,7 +105,8 @@ export const downloadService = {
   },
 
   /**
-   * Get a signed S3/MinIO download URL for a file.
+   * Get a presigned S3 download URL for a specific file.
+   * Returns a temporary URL the buyer can use to download the file directly from S3.
    */
   async getFileDownloadUrl(token: string, fileId: string) {
     const orderId = await this.verifyToken(token);
@@ -128,16 +128,52 @@ export const downloadService = {
 
     const file = order.product.files[0]!;
 
+    // ─── Content Dripping enforcement ───────────────────────────
+    // If the file has availableAfterDays > 0, check if enough time has passed since purchase
+    if (file.availableAfterDays > 0) {
+      const purchaseDate = new Date(order.createdAt);
+      const unlockDate = new Date(purchaseDate);
+      unlockDate.setDate(unlockDate.getDate() + file.availableAfterDays);
+
+      if (new Date() < unlockDate) {
+        const daysLeft = Math.ceil((unlockDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        throw new ForbiddenError(
+          `This file will be available in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}. Unlock date: ${unlockDate.toLocaleDateString()}`
+        );
+      }
+    }
+
     // Increment download count
     await prisma.order.update({
       where: { id: orderId },
       data: { downloadCount: { increment: 1 } },
     });
 
-    // In production: generate a pre-signed S3 URL
-    // For now: return the file key to be streamed by the proxy endpoint
+    // PDF Stamping — watermark with buyer's email
+    let fileKeyToServe = file.fileKey;
+    if (pdfStampingService.shouldStamp(file.fileType)) {
+      try {
+        fileKeyToServe = await pdfStampingService.getStampedKey(
+          file.fileKey,
+          orderId,
+          order.customerEmail
+        );
+      } catch {
+        // Fallback to original on stamping failure
+        fileKeyToServe = file.fileKey;
+      }
+    }
+
+    // Generate a presigned S3 GET URL (expires in 15 minutes)
+    const downloadUrl = await generateDownloadUrl(
+      fileKeyToServe,
+      900, // 15 minutes
+      file.fileName
+    );
+
     return {
-      fileKey: file.fileKey,
+      downloadUrl,
+      fileKey: fileKeyToServe,
       fileName: file.fileName,
       fileType: file.fileType,
     };

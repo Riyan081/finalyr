@@ -7,15 +7,15 @@ import multer from "multer";
  * to MinIO. No disk writes, reducing attack surface and cleanup needs.
  *
  * Limits:
- * - Single file: 5 GB max
+ * - Single file: 500 MB max (buffered in memory, then uploaded to S3)
  * - Thumbnail: 10 MB max (use thumbnailUpload)
  */
 
-// ─── Product File Upload (up to 5 GB) ───────────────────────────
+// ─── Product File Upload (up to 500 MB) ─────────────────────────
 export const productFileUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 * 1024, // 5 GB
+    fileSize: 500 * 1024 * 1024, // 500 MB (memory safe)
     files: 1,
   },
 });

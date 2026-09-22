@@ -14,6 +14,7 @@ import {
   Tag,
   Shield,
   Users,
+  BookOpen,
 } from "lucide-react";
 import { authClient } from "@repo/auth/client";
 import { useMe } from "@/hooks/api-hooks";
@@ -26,6 +27,7 @@ const SIDEBAR_LINKS = [
   { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
   { icon: ShoppingCart, label: "Sales", href: "/dashboard/orders" },
   { icon: ShoppingBag, label: "Purchases", href: "/dashboard/purchases" },
+  { icon: BookOpen, label: "Library", href: "/library" },
   { icon: Users, label: "Following", href: "/dashboard/following" },
   { icon: Tag, label: "Discounts", href: "/dashboard/discounts" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },

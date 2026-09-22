@@ -1,14 +1,16 @@
 import prisma from "@repo/db/client";
 import { NotFoundError } from "../utils/errors.js";
 import crypto from "crypto";
+import { emailService } from "./email.service.js";
 
 /**
  * Order service — create, list, refund.
- * Uses correct schema: customerEmail, customerName, creatorId, licenseKeys relation.
+ * Handles all product types: digital, course, membership, bundle.
  */
 export const orderService = {
   /**
    * Create an order after successful payment (called from webhook or verify endpoint).
+   * Handles license key generation, membership creation, and bundle access.
    */
   async createFromWebhook(data: {
     paymentProvider: "polar" | "razorpay";
@@ -32,7 +34,14 @@ export const orderService = {
   }) {
     const product = await prisma.product.findUnique({
       where: { id: data.productId },
-      select: { id: true, creatorId: true, productType: true },
+      select: {
+        id: true,
+        name: true,
+        creatorId: true,
+        productType: true,
+        recurrence: true,
+        bundledProductIds: true,
+      },
     });
     if (!product) throw new NotFoundError("Product");
 
@@ -61,23 +70,104 @@ export const orderService = {
       },
     });
 
-    // Create license key for digital products
-    if (product.productType === "digital") {
-      const licenseKey = crypto
-        .randomBytes(16)
-        .toString("hex")
-        .toUpperCase()
-        .match(/.{4}/g)!
-        .join("-");
+    // Generate license key for all product types
+    const licenseKey = crypto
+      .randomBytes(16)
+      .toString("hex")
+      .toUpperCase()
+      .match(/.{4}/g)!
+      .join("-");
 
-      await prisma.licenseKey.create({
-        data: {
-          orderId: order.id,
+    await prisma.licenseKey.create({
+      data: {
+        orderId: order.id,
+        productId: data.productId,
+        licenseKey,
+        maxUses: 5,
+      },
+    });
+
+    // Handle membership creation for subscription products
+    if (product.productType === "membership" && data.customerId) {
+      const recurrence = product.recurrence || "monthly";
+      const periodMonths = recurrence === "yearly" ? 12 : recurrence === "quarterly" ? 3 : 1;
+      const periodEnd = new Date();
+      periodEnd.setMonth(periodEnd.getMonth() + periodMonths);
+
+      // Check for existing membership
+      const existingMembership = await prisma.membership.findFirst({
+        where: {
+          customerId: data.customerId,
           productId: data.productId,
-          licenseKey,
-          maxUses: 5,
+          status: "active",
         },
       });
+
+      if (existingMembership) {
+        // Extend existing membership
+        await prisma.membership.update({
+          where: { id: existingMembership.id },
+          data: {
+            currentPeriodEnd: periodEnd,
+            status: "active",
+          },
+        });
+      } else {
+        // Create new membership
+        await prisma.membership.create({
+          data: {
+            customerId: data.customerId,
+            productId: data.productId,
+            creatorId: product.creatorId,
+            status: "active",
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: periodEnd,
+          },
+        });
+      }
+    }
+
+    // Handle bundle purchases — create orders/access for bundled products
+    if (product.productType === "bundle" && product.bundledProductIds.length > 0 && data.customerId) {
+      for (const bundledProductId of product.bundledProductIds) {
+        const bundledProduct = await prisma.product.findUnique({
+          where: { id: bundledProductId },
+          select: { id: true, creatorId: true, productType: true },
+        });
+        if (!bundledProduct) continue;
+
+        // Create a sub-order for each bundled product (with $0 amount)
+        const subOrder = await prisma.order.create({
+          data: {
+            productId: bundledProductId,
+            customerId: data.customerId,
+            customerEmail: data.customerEmail,
+            customerName: data.customerName,
+            creatorId: bundledProduct.creatorId,
+            amountCents: 0,
+            currency: data.currency,
+            status: "completed",
+            paymentProvider: data.paymentProvider,
+          },
+        });
+
+        // Generate license key for bundled product
+        const bundledLicense = crypto
+          .randomBytes(16)
+          .toString("hex")
+          .toUpperCase()
+          .match(/.{4}/g)!
+          .join("-");
+
+        await prisma.licenseKey.create({
+          data: {
+            orderId: subOrder.id,
+            productId: bundledProductId,
+            licenseKey: bundledLicense,
+            maxUses: 5,
+          },
+        });
+      }
     }
 
     // Increment product stats
@@ -88,6 +178,26 @@ export const orderService = {
         revenueCents: { increment: BigInt(data.amountCents) },
       },
     });
+
+    // Send receipt email (fire-and-forget, don't block order creation)
+    if (data.customerEmail) {
+      const creatorUser = await prisma.user.findUnique({
+        where: { id: product.creatorId },
+        select: { name: true },
+      });
+
+      emailService.sendPurchaseReceipt({
+        buyerEmail: data.customerEmail,
+        buyerName: data.customerName || "Customer",
+        productName: product.name || "Product",
+        creatorName: creatorUser?.name || "Creator",
+        amountCents: data.amountCents,
+        currency: data.currency,
+        orderId: order.id,
+        licenseKey: licenseKey,
+        productType: product.productType || "digital",
+      }).catch((err) => console.error("[Email] Receipt failed:", err));
+    }
 
     return order;
   },
@@ -142,6 +252,7 @@ export const orderService = {
         product: {
           select: {
             id: true, name: true, thumbnailUrl: true, slug: true, creatorId: true,
+            productType: true,
             creator: { select: { name: true, username: true } },
             files: { select: { id: true, fileName: true, fileType: true, fileSizeBytes: true } },
           },
@@ -176,7 +287,7 @@ export const orderService = {
         include: {
           product: {
             select: {
-              id: true, name: true, thumbnailUrl: true, slug: true,
+              id: true, name: true, thumbnailUrl: true, slug: true, productType: true,
               creator: { select: { name: true, username: true } },
             },
           },
@@ -203,6 +314,9 @@ export const orderService = {
   async refund(orderId: string, creatorId: string) {
     const order = await prisma.order.findFirst({
       where: { id: orderId, creatorId, status: "completed" },
+      include: {
+        product: { select: { productType: true } },
+      },
     });
     if (!order) throw new NotFoundError("Order");
 
@@ -215,6 +329,21 @@ export const orderService = {
       where: { id: order.productId },
       data: { revenueCents: { decrement: BigInt(order.amountCents) } },
     });
+
+    // Cancel membership if this was a membership product
+    if (order.product.productType === "membership" && order.customerId) {
+      await prisma.membership.updateMany({
+        where: {
+          customerId: order.customerId,
+          productId: order.productId,
+          status: "active",
+        },
+        data: {
+          status: "cancelled",
+          cancelledAt: new Date(),
+        },
+      });
+    }
 
     return { ...updated, amountCents: Number(updated.amountCents) };
   },

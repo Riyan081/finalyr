@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, LayoutDashboard, LogOut, User, ShoppingBag, Users } from "lucide-react";
+import { Menu, X, LayoutDashboard, LogOut, User, ShoppingBag, Users, BookOpen } from "lucide-react";
 import { authClient } from "@repo/auth/client";
 import { toast } from "sonner";
 
@@ -106,6 +106,14 @@ export default function Navbar() {
                     >
                       <ShoppingBag size={16} />
                       Purchases
+                    </Link>
+                    <Link
+                      href="/library"
+                      className="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <BookOpen size={16} />
+                      Library
                     </Link>
                     <Link
                       href="/dashboard/following"

@@ -55,4 +55,17 @@ router.post(
   productController.publish
 );
 
+// Bundle management
+router.put(
+  "/api/products/:id/bundle",
+  requireAuth,
+  validateParams(productParamsSchema),
+  productController.updateBundle
+);
+
+router.get(
+  "/api/products/:id/bundle",
+  productController.getBundledProducts
+);
+
 export default router;

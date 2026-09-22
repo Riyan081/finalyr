@@ -265,7 +265,17 @@ export default function NewProductPage() {
               <button
                 key={pt.value}
                 type="button"
-                onClick={() => setProductType(pt.value)}
+                onClick={() => {
+                  setProductType(pt.value);
+                  // Auto-set CTA based on type
+                  const ctaMap: Record<string, string> = {
+                    digital: "I want this!",
+                    course: "Enroll now",
+                    membership: "Subscribe",
+                    bundle: "Get access",
+                  };
+                  setCallToAction(ctaMap[pt.value] || "I want this!");
+                }}
                 className={`py-3 px-4 text-sm font-semibold brutal-border transition-colors ${
                   productType === pt.value
                     ? "bg-primary text-primary-foreground brutal-shadow"
@@ -276,24 +286,39 @@ export default function NewProductPage() {
               </button>
             ))}
           </div>
+
+          {/* Type-specific info */}
+          {productType === "digital" && (
+            <p className="text-xs text-muted-foreground bg-muted/50 p-3 brutal-border">📦 Digital downloads — upload files that buyers can download after purchase.</p>
+          )}
+          {productType === "course" && (
+            <p className="text-xs text-muted-foreground bg-muted/50 p-3 brutal-border">🎓 Online course — upload lesson files and materials. Buyers get immediate access after purchase.</p>
+          )}
+          {productType === "bundle" && (
+            <p className="text-xs text-muted-foreground bg-muted/50 p-3 brutal-border">📦 Bundle — group multiple products together at a discounted price. You can select products to include after creation.</p>
+          )}
+
           {productType === "membership" && (
-            <div>
-              <label className="block text-sm font-bold mb-2">
-                Billing Frequency
-              </label>
-              <select
-                value={recurrence}
-                onChange={(e) => setRecurrence(e.target.value as any)}
-                className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none"
-              >
-                <option value="">Select frequency…</option>
-                {RECURRENCE_OPTIONS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <>
+              <p className="text-xs text-muted-foreground bg-muted/50 p-3 brutal-border">🔑 Membership — recurring billing. Subscribers get access as long as their membership is active.</p>
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  Billing Frequency <span className="text-destructive">*</span>
+                </label>
+                <select
+                  value={recurrence}
+                  onChange={(e) => setRecurrence(e.target.value as any)}
+                  className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none"
+                >
+                  <option value="">Select frequency…</option>
+                  {RECURRENCE_OPTIONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
           )}
         </div>
 
@@ -619,7 +644,7 @@ export default function NewProductPage() {
 
           {/* Files */}
           <div className="brutal-card p-6">
-            <h3 className="font-heading font-bold text-base mb-4 flex items-center gap-2"><FileText size={18} /> Downloadable Files</h3>
+            <h3 className="font-heading font-bold text-base mb-4 flex items-center gap-2"><FileText size={18} /> {productType === "course" ? "Course Lessons & Materials" : "Downloadable Files"}</h3>
             {uploadedFiles.length > 0 && (
               <div className="mb-4 space-y-2">
                 {uploadedFiles.map((f) => (

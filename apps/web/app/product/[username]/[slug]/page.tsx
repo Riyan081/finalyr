@@ -14,7 +14,7 @@ import { usePublicProduct, useTrendingProducts } from "@/hooks/api-hooks";
 import { formatPrice, CATEGORY_COLORS } from "@/lib/mock-data";
 import {
   checkoutApi, discountsApi, reviewsApi, type ProductVariant, type ProductReview,
-  type DiscountValidation,
+  type DiscountValidation, type BundledProduct,
 } from "@/lib/api";
 import { authClient } from "@repo/auth/client";
 import { toast } from "sonner";
@@ -318,7 +318,43 @@ export default function ProductDetailPage() {
               </p>
               {product.fileCount > 0 && (
                 <div className="mt-6 p-4 bg-muted/50 brutal-border">
-                  <p className="text-sm font-semibold">📦 {product.fileCount} file{product.fileCount !== 1 ? "s" : ""} included</p>
+                  <p className="text-sm font-semibold">
+                    {product.productType === "course"
+                      ? `🎓 ${product.fileCount} lesson${product.fileCount !== 1 ? "s" : ""} included`
+                      : `📦 ${product.fileCount} file${product.fileCount !== 1 ? "s" : ""} included`}
+                  </p>
+                </div>
+              )}
+
+              {/* Bundled Products */}
+              {product.productType === "bundle" && product.bundledProducts && product.bundledProducts.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-heading font-bold text-lg mb-3">Included in this Bundle</h3>
+                  <div className="space-y-3">
+                    {product.bundledProducts.map((bp: BundledProduct) => (
+                      <div key={bp.id} className="flex items-center gap-3 p-3 bg-muted/30 brutal-border">
+                        {bp.thumbnailUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={bp.thumbnailUrl} alt={bp.name} className="w-12 h-12 object-cover brutal-border" />
+                        ) : (
+                          <div className="w-12 h-12 bg-muted brutal-border flex items-center justify-center">
+                            <span className="text-lg font-black text-foreground/20">{bp.name.charAt(0)}</span>
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-sm truncate">{bp.name}</p>
+                          {bp.summary && <p className="text-xs text-muted-foreground truncate">{bp.summary}</p>}
+                          <p className="text-xs text-muted-foreground capitalize">{bp.productType}</p>
+                        </div>
+                        <span className="text-xs font-bold shrink-0">
+                          {formatPriceForProvider(bp.priceCents, bp.currency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    🎁 Save by getting all {product.bundledProducts.length} products together!
+                  </p>
                 </div>
               )}
               {product.tags && product.tags.length > 0 && (
@@ -466,6 +502,11 @@ export default function ProductDetailPage() {
                   {product.isPayWhatYouWant && product.minPriceCents > 0 && (
                     <p className="text-xs mt-1 opacity-70">
                       Minimum: {formatPriceForProvider(product.minPriceCents, product.currency)}
+                    </p>
+                  )}
+                  {product.productType === "membership" && product.recurrence && (
+                    <p className="text-xs mt-1 font-semibold opacity-80">
+                      Billed {product.recurrence}
                     </p>
                   )}
                 </div>

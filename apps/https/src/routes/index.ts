@@ -14,6 +14,8 @@ import checkoutRoutes from "./checkout.routes.js";
 import orderRoutes from "./order.routes.js";
 import reviewRoutes from "./review.routes.js";
 import discountRoutes from "./discount.routes.js";
+import libraryRoutes from "./library.routes.js";
+import postRoutes from "./post.routes.js";
 
 const router: ExpressRouter = Router();
 
@@ -44,5 +46,11 @@ router.use("/api/discounts", discountRoutes);
 
 // ─── Checkout + Payments ─────────────────────────────────────────
 router.use("/api/checkout", checkoutRoutes);
+
+// ─── Buyer Library ───────────────────────────────────────────────
+router.use("/api/library", libraryRoutes);
+
+// ─── Creator Posts ───────────────────────────────────────────────
+router.use("/api/posts", postRoutes);
 
 export default router;

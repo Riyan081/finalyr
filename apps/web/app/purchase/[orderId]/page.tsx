@@ -333,10 +333,10 @@ export default function PurchaseSuccessPage() {
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
-            href="/dashboard/purchases"
+            href="/library"
             className="brutal-btn bg-primary text-primary-foreground text-sm font-bold flex-1 text-center py-3"
           >
-            My Purchases
+            My Library
           </Link>
           <Link
             href="/discover"

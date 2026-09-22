@@ -68,6 +68,7 @@ model User {
   affiliateOf Affiliate[]   @relation("AffiliateUser")
   workflows   Workflow[]
   memberships Membership[]
+  creatorPosts CreatorPost[] @relation("CreatorPosts")
 
   @@map("user")
 }
@@ -177,6 +178,12 @@ model Product {
 
   // ─ Software-specific
   systemRequirements String? @db.Text // Required when category = "software"
+
+  // ─ Bundle (references other product IDs)
+  bundledProductIds String[] // Product IDs included in this bundle
+
+  // ─ Course (lesson structure as JSON)
+  courseModules Json? // Optional module/lesson structure for courses
 
   // ─ Stats (denormalized for read performance)
   salesCount   Int     @default(0)
@@ -330,6 +337,7 @@ model Order {
 model Membership {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   customerId String
   customer   User    @relation(fields: [customerId], references: [id])
@@ -337,11 +345,8 @@ model Membership {
   product    Product @relation(fields: [productId], references: [id])
   creatorId  String
 
-  // ─ Stripe Subscription
-  stripeSubscriptionId String? @unique
-
   // ─ Status
-  status String @default("active") // "active" | "paused" | "cancelled" | "past_due"
+  status String @default("active") // "active" | "paused" | "cancelled" | "expired"
 
   // ─ Billing Period
   currentPeriodStart DateTime?
@@ -350,8 +355,10 @@ model Membership {
 
   cancelledAt DateTime?
 
+  @@unique([customerId, productId])
   @@index([customerId])
   @@index([productId])
+  @@index([status])
   @@map("membership")
 }
 
@@ -532,4 +539,27 @@ model WorkflowStep {
 
   @@index([workflowId])
   @@map("workflow_step")
+}
+
+// ─── Creator Posts (member-only content) ────────────────────────────
+
+model CreatorPost {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creatorId String
+  creator   User   @relation("CreatorPosts", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  productId String?  // If set, only buyers of this product (or active members) can see it
+
+  title   String
+  content String  @db.Text // Markdown/rich text
+  
+  isPublic   Boolean @default(false) // If true, visible to everyone
+  isPinned   Boolean @default(false)
+
+  @@index([creatorId])
+  @@index([productId])
+  @@map("creator_post")
 }

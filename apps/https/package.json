@@ -4,8 +4,9 @@
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@repo/typescript-config": "*",
     "@types/bun": "latest",
-    "@repo/typescript-config": "*"
+    "@types/nodemailer": "^8.0.2"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -16,6 +17,7 @@
     "start": "bun dist/index.js"
   },
   "dependencies": {
+    "@polar-sh/sdk": "^0.34.0",
     "@repo/auth": "*",
     "@repo/common": "*",
     "@repo/db": "*",
@@ -28,7 +30,8 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "multer": "^2.2.0",
-    "@polar-sh/sdk": "^0.34.0",
+    "nodemailer": "^10.0.10",
+    "pdf-lib": "^1.17.1",
     "razorpay": "^2.9.6",
     "zod": "^3.23.8"
   }

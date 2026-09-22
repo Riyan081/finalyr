@@ -103,6 +103,13 @@ export const createProductSchema = z.object({
     .max(5000, "System requirements must be under 5,000 characters")
     .optional()
     .nullable(),
+
+  // Bundle: referenced product IDs
+  bundledProductIds: z
+    .array(z.string().min(1))
+    .max(50, "Maximum 50 products in a bundle")
+    .optional()
+    .default([]),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
