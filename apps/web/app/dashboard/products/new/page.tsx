@@ -64,10 +64,8 @@ export default function NewProductPage() {
 
   // ─── Step 2: after creation ──────────────────────────────────────
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
-  const [createdProductName, setCreatedProductName] = useState("");
 
   // Thumbnail
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [uploadingThumb, setUploadingThumb] = useState(false);
   const thumbInputRef = useRef<HTMLInputElement>(null);
@@ -147,7 +145,6 @@ export default function NewProductPage() {
 
       const product = await productsApi.create(payload);
       setCreatedProductId(product.id);
-      setCreatedProductName(product.name);
 
       if (action === "publish") {
         await productsApi.publish(product.id);
@@ -171,7 +168,6 @@ export default function NewProductPage() {
   const handleThumbnailSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !createdProductId) return;
-    setThumbnailFile(file);
     setUploadingThumb(true);
     try {
       const result = await fileUploadApi.uploadThumbnail(createdProductId, file);
@@ -606,6 +602,7 @@ export default function NewProductPage() {
           <div className="brutal-card p-6">
             <h3 className="font-heading font-bold text-base mb-4 flex items-center gap-2"><ImageIcon size={18} /> Thumbnail</h3>
             <div className="flex items-center gap-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               {thumbnailUrl ? (<img src={thumbnailUrl} alt="Thumbnail" className="w-24 h-24 object-cover brutal-border" />) : (<div className="w-24 h-24 bg-muted brutal-border flex items-center justify-center"><ImageIcon size={24} className="text-muted-foreground" /></div>)}
               <div>
                 <input ref={thumbInputRef} type="file" accept="image/*" onChange={handleThumbnailSelect} className="hidden" />

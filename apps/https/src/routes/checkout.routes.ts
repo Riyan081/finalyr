@@ -52,10 +52,10 @@ router.post("/session/polar", optionalAuth, async (req: Request, res: Response) 
 // POST /api/checkout/webhook/polar — Polar webhook (raw body)
 router.post(
   "/webhook/polar",
-  express.raw({ type: "application/json" }),
   async (req: Request, res: Response) => {
     const sig = req.headers["polar-signature"] as string;
-    const result = await checkoutService.handlePolarWebhook(req.body as Buffer, sig);
+    const payload = (req as any).rawBody || (Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body)));
+    const result = await checkoutService.handlePolarWebhook(payload, sig);
     res.json(result);
   }
 );
@@ -98,10 +98,10 @@ router.post("/verify/razorpay", optionalAuth, async (req: Request, res: Response
 // POST /api/checkout/webhook/razorpay — Razorpay webhook (raw body)
 router.post(
   "/webhook/razorpay",
-  express.raw({ type: "application/json" }),
   async (req: Request, res: Response) => {
     const sig = req.headers["x-razorpay-signature"] as string;
-    const result = await checkoutService.handleRazorpayWebhook(req.body as Buffer, sig);
+    const payload = (req as any).rawBody || (Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body)));
+    const result = await checkoutService.handleRazorpayWebhook(payload, sig);
     res.json(result);
   }
 );
@@ -173,14 +173,29 @@ router.get("/download/:orderId", async (req: Request, res: Response) => {
   sendSuccess(res, "Download token generated", result);
 });
 
-// GET /api/checkout/file?token=...&fileId=... — stream file to buyer
+// GET /api/checkout/file?token=...&fileId=... — stream file or dynamically stamped PDF to buyer
 router.get("/file", async (req: Request, res: Response) => {
-  const { token, fileId } = req.query as { token: string; fileId: string };
-  const { fileKey, fileName, fileType } = await downloadService.getFileDownloadUrl(token, fileId);
+  try {
+    const { token, fileId } = req.query as { token: string; fileId: string };
+    const result = await downloadService.getFileOrStampedPdf(token, fileId);
 
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-  res.setHeader("Content-Type", fileType);
-  res.redirect(302, `/api/files/stream/${fileKey}`);
+    if (result.isPdf && result.pdfBytes) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${result.fileName}"`
+      );
+      res.setHeader("Content-Length", result.pdfBytes.length);
+      res.send(Buffer.from(result.pdfBytes));
+      return;
+    }
+
+    res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
+    res.setHeader("Content-Type", (result as any).fileType || "application/octet-stream");
+    res.redirect(302, `/api/files/stream/${(result as any).fileKey}`);
+  } catch (err: any) {
+    res.status(400).send(err.message || "Failed to download file");
+  }
 });
 
 export default router;

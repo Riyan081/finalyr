@@ -111,6 +111,49 @@
   --border-width: 2px;
 }
 
+/* ─── Light Mode ──────────────────────────────────────────────────── */
+html.light,
+[data-theme="light"] {
+  --background: 50 20% 97%;
+  --foreground: 0 0% 10%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+
+  --primary: 316 100% 78%;
+  --primary-foreground: 0 0% 0%;
+
+  --secondary: 45 100% 50%;
+  --secondary-foreground: 0 0% 0%;
+
+  --muted: 50 12% 92%;
+  --muted-foreground: 50 6% 40%;
+
+  --accent: 316 100% 78%;
+  --accent-foreground: 0 0% 0%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 0 0% 0%;
+  --input: 0 0% 0%;
+  --ring: 316 100% 78%;
+
+  --digi-pink: 316 100% 78%;
+  --digi-yellow: 45 100% 50%;
+  --digi-bg: 50 20% 97%;
+  --digi-lavender: 260 60% 70%;
+  --digi-mint: 150 50% 55%;
+  --digi-peach: 20 80% 65%;
+
+  --shadow-brutal: 4px 4px 0px #000000;
+  --shadow-brutal-lg: 6px 6px 0px #000000;
+  --shadow-brutal-hover: 6px 6px 0px #000000;
+}
+
 /* ─── Base Styles ─────────────────────────────────────────────────── */
 * {
   border-color: hsl(var(--border));
@@ -142,8 +185,12 @@ h1, h2, h3, h4, h5, h6 {
 .brutal-card {
   border: var(--border-width) solid hsl(var(--border));
   box-shadow: var(--shadow-brutal);
-  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
   transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.brutal-card:not([class*="bg-"]) {
+  background-color: hsl(var(--card));
 }
 
 .brutal-card:hover {

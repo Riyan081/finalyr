@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft, X, Plus, Upload, Trash2, Loader2,
   Image as ImageIcon, FileText, CheckCircle2, AlertCircle,
@@ -30,7 +30,6 @@ const RECURRENCE_OPTIONS = [
 const CTA_PRESETS = ["I want this!", "Buy now", "Get access", "Enroll now", "Download", "Subscribe"];
 
 export default function EditProductPage() {
-  const router = useRouter();
   const params = useParams();
   const productId = params.id as string;
 

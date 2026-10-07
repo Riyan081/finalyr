@@ -4,16 +4,16 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  ArrowLeft, ShoppingCart, Share2, Loader2, Star, Globe, CreditCard, ChevronDown,
-  Check, X, Monitor
+  ArrowLeft, ShoppingCart, Share2, Loader2, Star,
+  Check, Monitor, Lock, Unlock, Crown, Repeat, Sparkles, ShieldCheck, Download
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import ProductCard from "@/components/product-card";
-import { usePublicProduct, useTrendingProducts } from "@/hooks/api-hooks";
-import { formatPrice, CATEGORY_COLORS } from "@/lib/mock-data";
+import { usePublicProduct, useTrendingProducts, useMembershipAccess } from "@/hooks/api-hooks";
+import { CATEGORY_COLORS } from "@/lib/mock-data";
 import {
-  checkoutApi, discountsApi, reviewsApi, type ProductVariant, type ProductReview,
+  checkoutApi, discountsApi, reviewsApi, membershipApi, type ProductVariant, type ProductReview,
   type DiscountValidation,
 } from "@/lib/api";
 import { authClient } from "@repo/auth/client";
@@ -112,6 +112,12 @@ export default function ProductDetailPage() {
   const [validatingCode, setValidatingCode] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
 
+  // Membership state & access check
+  const { data: accessData, refetch: refetchAccess } = useMembershipAccess(product?.id || "");
+  const isMember = Boolean(accessData?.hasAccess);
+  const userMembership = accessData?.membership;
+  const [subscribing, setSubscribing] = useState(false);
+
   // Reviews state
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [reviewRating, setReviewRating] = useState(5);
@@ -135,7 +141,7 @@ export default function ProductDetailPage() {
         setCustomAmount((defaultCents / 100).toFixed(2));
       }
     }
-  }, [product, provider]);
+  }, [product, provider, customAmount]);
 
   const formatPriceForProvider = (cents: number, cur: string = "usd") => {
     if (cents === 0) return "Free";
@@ -160,9 +166,10 @@ export default function ProductDetailPage() {
           ? `₹${Math.round((saved / 100) * 85)} off`
           : `$${(saved / 100).toFixed(2)} off`;
       toast.success(`Discount applied: ${discountLabel}`);
-    } catch {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Invalid code";
+      toast.error(msg);
       setDiscountInfo(null);
-      toast.error("Invalid or expired discount code");
     } finally {
       setValidatingCode(false);
     }
@@ -198,9 +205,35 @@ export default function ProductDetailPage() {
 
       toast.success("Purchase successful!");
       router.push(result.redirectUrl || `/purchase/${result.orderId}`);
-    } catch (e: any) {
-      toast.error("Checkout failed", { description: e.message });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Checkout failed";
+      toast.error("Checkout failed", { description: msg });
       setCheckingOut(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!product) return;
+    if (!session?.user) {
+      toast.info("Please sign in to subscribe to this membership");
+      router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    setSubscribing(true);
+    try {
+      const res = await membershipApi.subscribe(
+        product.id,
+        (product.recurrence as any) || "monthly"
+      );
+      toast.success("Subscribed successfully! Welcome to the membership.", {
+        description: `Order #${res.orderId.slice(0, 8)} created. Member perks unlocked!`,
+      });
+      refetchAccess();
+      router.push(`/purchase/${res.orderId}`);
+    } catch (e: any) {
+      toast.error("Subscription failed", { description: e.message });
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -226,8 +259,9 @@ export default function ProductDetailPage() {
       setReviews((prev) => [r, ...prev]);
       setReviewContent("");
       toast.success("Review submitted!");
-    } catch (e: any) {
-      toast.error("Review failed", { description: e.message });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Review failed";
+      toast.error("Review failed", { description: msg });
     } finally {
       setSubmittingReview(false);
     }
@@ -365,6 +399,90 @@ export default function ProductDetailPage() {
               </div>
             )}
 
+            {/* Member-Only Gated Content Section (For Membership Products) */}
+            {product.productType === "membership" && (
+              <div id="member-lounge" className="brutal-card p-8 mt-6 scroll-mt-28">
+                {isMember ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2 pb-4 border-b-2 border-border">
+                      <div className="flex items-center gap-2.5">
+                        <Crown className="text-amber-500" size={24} />
+                        <div>
+                          <h2 className="font-heading font-black text-xl text-foreground">
+                            Patron Member Lounge
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            Exclusive perks, member archives, and patron community
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-3 py-1 brutal-border flex items-center gap-1.5">
+                        <ShieldCheck size={14} /> VIP Access Active
+                      </span>
+                    </div>
+
+                    <div className="p-4 brutal-border bg-muted/40 space-y-2 text-sm">
+                      <p className="font-semibold text-foreground flex items-center gap-2">
+                        <Sparkles size={16} className="text-primary" />
+                        Exclusive Member Broadcast
+                      </p>
+                      <p className="text-muted-foreground leading-relaxed text-xs">
+                        Welcome to the inner circle! As an active subscriber, you have ongoing access to all creator source files, private Discord/Slack community invitations, live Q&amp;A sessions, and early-access builds.
+                      </p>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3 pt-2">
+                      <div className="p-4 brutal-border bg-card">
+                        <p className="text-xs font-bold uppercase text-muted-foreground mb-1">
+                          Billing Cycle
+                        </p>
+                        <p className="font-heading font-bold text-base">
+                          {product.recurrence ? product.recurrence.toUpperCase() : "MONTHLY"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Status: Active subscription
+                        </p>
+                      </div>
+
+                      <div className="p-4 brutal-border bg-card">
+                        <p className="text-xs font-bold uppercase text-muted-foreground mb-1">
+                          Next Renewal Date
+                        </p>
+                        <p className="font-heading font-bold text-base">
+                          {userMembership?.currentPeriodEnd
+                            ? new Date(userMembership.currentPeriodEnd).toLocaleDateString()
+                            : "Active"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Automatic recurring renewal
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <div className="w-14 h-14 bg-amber-500/20 text-amber-500 mx-auto rounded-full flex items-center justify-center mb-4 brutal-border">
+                      <Lock size={28} />
+                    </div>
+                    <h2 className="font-heading font-black text-2xl mb-2">
+                      Members-Only Gated Content
+                    </h2>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+                      This content and perks are locked for non-members. Subscribe to this tier to gain instant VIP access to exclusive files, monthly updates, and creator perks.
+                    </p>
+                    <button
+                      onClick={handleSubscribe}
+                      disabled={subscribing}
+                      className="brutal-btn bg-primary text-primary-foreground text-sm font-bold inline-flex items-center gap-2 py-3 px-6 disabled:opacity-60"
+                    >
+                      {subscribing ? <Loader2 size={16} className="animate-spin" /> : <Unlock size={16} />}
+                      Subscribe to Unlock Access
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Reviews */}
             <div className="brutal-card p-8 mt-6">
               <h2 className="font-heading font-bold text-xl mb-6">
@@ -456,15 +574,27 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* Price */}
-                <div className="bg-digi-yellow brutal-border p-4 mb-4 text-center">
-                  <span className="font-heading font-black text-3xl">{displayPrice}</span>
+                <div className="bg-digi-yellow text-black brutal-border p-4 mb-4 text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="font-heading font-black text-3xl text-black">{displayPrice}</span>
+                    {product.productType === "membership" && (
+                      <span className="text-sm font-bold text-black/80 uppercase">
+                        /{product.recurrence || "month"}
+                      </span>
+                    )}
+                  </div>
+                  {product.productType === "membership" && (
+                    <p className="text-xs mt-1 font-bold text-black/80 flex items-center justify-center gap-1">
+                      <Repeat size={12} /> Recurring Subscription
+                    </p>
+                  )}
                   {discountInfo && (
-                    <p className="text-xs mt-1 line-through opacity-60">
+                    <p className="text-xs mt-1 line-through text-black/70">
                       {formatPriceForProvider(discountInfo.originalPriceCents, product.currency)}
                     </p>
                   )}
                   {product.isPayWhatYouWant && product.minPriceCents > 0 && (
-                    <p className="text-xs mt-1 opacity-70">
+                    <p className="text-xs mt-1 text-black/80 font-medium">
                       Minimum: {formatPriceForProvider(product.minPriceCents, product.currency)}
                     </p>
                   )}
@@ -525,20 +655,63 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* Payment Provider Toggle */}
-                <p className="text-xs font-bold mb-2 text-muted-foreground uppercase tracking-wider">Pay with</p>
-                <PaymentProviderPicker value={provider} onChange={setProvider} />
+                {product.productType !== "membership" && (
+                  <>
+                    <p className="text-xs font-bold mb-2 text-muted-foreground uppercase tracking-wider">Pay with</p>
+                    <PaymentProviderPicker value={provider} onChange={setProvider} />
+                  </>
+                )}
 
-                {/* Buy Button */}
-                <button
-                  onClick={handleBuy}
-                  disabled={checkingOut}
-                  className="w-full brutal-btn bg-primary text-primary-foreground text-lg font-bold py-4 flex items-center justify-center gap-2 mb-3 disabled:opacity-70"
-                >
-                  {checkingOut
-                    ? <Loader2 size={20} className="animate-spin" />
-                    : <ShoppingCart size={20} />}
-                  {checkingOut ? "Processing…" : (product.callToAction || "Buy Now")}
-                </button>
+                {/* Buy / Subscribe Action */}
+                {product.productType === "membership" ? (
+                  isMember ? (
+                    <div className="space-y-2 mb-3">
+                      <div className="p-3 brutal-border bg-emerald-500/15 text-center">
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5">
+                          <Crown size={14} /> ACTIVE MEMBER ACCESS
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Renews: {userMembership?.currentPeriodEnd ? new Date(userMembership.currentPeriodEnd).toLocaleDateString() : "Active"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const el = document.getElementById("member-lounge");
+                          el?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="w-full brutal-btn bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-3.5 flex items-center justify-center gap-2"
+                      >
+                        <Sparkles size={16} /> Open Member Lounge
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleSubscribe}
+                      disabled={subscribing}
+                      className="w-full brutal-btn bg-primary text-primary-foreground text-base font-bold py-4 flex items-center justify-center gap-2 mb-3 disabled:opacity-70"
+                    >
+                      {subscribing ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Crown size={18} />
+                      )}
+                      {subscribing
+                        ? "Subscribing…"
+                        : `Subscribe (${displayPrice}/${product.recurrence || "mo"})`}
+                    </button>
+                  )
+                ) : (
+                  <button
+                    onClick={handleBuy}
+                    disabled={checkingOut}
+                    className="w-full brutal-btn bg-primary text-primary-foreground text-lg font-bold py-4 flex items-center justify-center gap-2 mb-3 disabled:opacity-70"
+                  >
+                    {checkingOut
+                      ? <Loader2 size={20} className="animate-spin" />
+                      : <ShoppingCart size={20} />}
+                    {checkingOut ? "Processing…" : (product.callToAction || "Buy Now")}
+                  </button>
+                )}
 
                 <button
                   onClick={handleShare}

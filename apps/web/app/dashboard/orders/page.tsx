@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ShoppingCart, RefreshCw, Loader2, RotateCcw, Download } from "lucide-react";
-import { ordersApi, checkoutApi, type OrderItem } from "@/lib/api";
+import { ShoppingCart, RefreshCw, Loader2, RotateCcw } from "lucide-react";
+import { ordersApi, type OrderItem } from "@/lib/api";
 import { formatPrice } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: "bg-digi-mint text-primary-foreground",
-  pending: "bg-digi-yellow text-primary-foreground",
+  completed: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+  pending: "bg-amber-500/20 text-amber-400 border-amber-500/40",
   refunded: "bg-muted text-muted-foreground",
-  failed: "bg-destructive text-destructive-foreground",
+  failed: "bg-destructive/20 text-destructive border-destructive/40",
 };
 
 const PROVIDER_LABELS: Record<string, string> = {

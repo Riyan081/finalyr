@@ -175,7 +175,7 @@ export default function AnalyticsPage() {
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 brutal-border ${
                       p.status === "published"
-                        ? "bg-digi-mint text-primary-foreground"
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
                         : "bg-muted text-muted-foreground"
                     }`}
                   >

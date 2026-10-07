@@ -14,6 +14,9 @@ import checkoutRoutes from "./checkout.routes.js";
 import orderRoutes from "./order.routes.js";
 import reviewRoutes from "./review.routes.js";
 import discountRoutes from "./discount.routes.js";
+import licenseRoutes from "./license.routes.js";
+import membershipRoutes from "./membership.routes.js";
+import drmRoutes from "./drm.routes.js";
 
 const router: ExpressRouter = Router();
 
@@ -41,6 +44,15 @@ router.use("/api/reviews", reviewRoutes);
 router.use("/api/analytics", analyticsRoutes);
 router.use("/api/orders", orderRoutes);
 router.use("/api/discounts", discountRoutes);
+
+// ─── Subscriptions & Memberships ─────────────────────────────────
+router.use("/api/memberships", membershipRoutes);
+
+// ─── Software License Keys ───────────────────────────────────────
+router.use("/api/licenses", licenseRoutes);
+
+// ─── PDF Stamping / DRM ──────────────────────────────────────────
+router.use("/api/drm", drmRoutes);
 
 // ─── Checkout + Payments ─────────────────────────────────────────
 router.use("/api/checkout", checkoutRoutes);

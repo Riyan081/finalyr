@@ -61,14 +61,10 @@ export const orderService = {
       },
     });
 
-    // Create license key for digital products
-    if (product.productType === "digital") {
-      const licenseKey = crypto
-        .randomBytes(16)
-        .toString("hex")
-        .toUpperCase()
-        .match(/.{4}/g)!
-        .join("-");
+    // Create license key for digital and software products
+    if (product.productType === "digital" || product.productType === "software") {
+      const part = () => crypto.randomBytes(2).toString("hex").toUpperCase();
+      const licenseKey = `DIGI-${part()}-${part()}-${part()}`;
 
       await prisma.licenseKey.create({
         data: {

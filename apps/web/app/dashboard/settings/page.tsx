@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { authClient } from "@repo/auth/client";
 import { creatorApi, checkoutApi, type PayoutProviderStatus } from "@/lib/api";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // ─── Payout Section ──────────────────────────────────────────────────────────
 
@@ -297,6 +298,17 @@ export default function SettingsPage() {
                 className="w-full px-4 py-3 brutal-border bg-muted/50 font-body text-sm text-muted-foreground cursor-not-allowed"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Appearance */}
+        <div className="brutal-card p-6">
+          <h2 className="font-heading font-bold text-lg mb-1">Appearance</h2>
+          <p className="text-muted-foreground text-sm mb-4">
+            Toggle between Light and Dark interface theme.
+          </p>
+          <div className="flex items-center gap-3">
+            <ThemeToggle showLabel className="px-4 py-2.5" />
           </div>
         </div>
 

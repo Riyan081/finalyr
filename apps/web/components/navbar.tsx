@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, LayoutDashboard, LogOut, User, ShoppingBag, Users } from "lucide-react";
+import { Menu, X, LayoutDashboard, LogOut, User, ShoppingBag, Users, Sparkles, Settings } from "lucide-react";
 import { authClient } from "@repo/auth/client";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navLinks = [
   { label: "Discover", href: "/discover" },
@@ -22,6 +23,7 @@ export default function Navbar() {
   // Real session from Better Auth
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
+  const isCreator = (user as any)?.role === "creator" || Boolean((user as any)?.username);
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -62,6 +64,7 @@ export default function Navbar() {
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             {isPending ? (
               // Loading skeleton
               <div className="w-32 h-9 bg-muted animate-pulse brutal-border" />
@@ -90,35 +93,74 @@ export default function Navbar() {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-card brutal-border brutal-shadow z-50">
+                  <div className="absolute right-0 top-full mt-1 w-52 bg-card brutal-border brutal-shadow z-50">
+                    {isCreator ? (
+                      <>
+                        <Link
+                          href="/dashboard"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <LayoutDashboard size={16} />
+                          Creator Dashboard
+                        </Link>
+                        <Link
+                          href="/dashboard/purchases"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <ShoppingBag size={16} />
+                          Purchases
+                        </Link>
+                        <Link
+                          href="/dashboard/following"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Users size={16} />
+                          Following
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/dashboard/purchases"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <ShoppingBag size={16} />
+                          My Purchases
+                        </Link>
+                        <Link
+                          href="/dashboard/following"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Users size={16} />
+                          Following
+                        </Link>
+                        <Link
+                          href="/dashboard/creator-setup"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Sparkles size={16} />
+                          Become a Creator
+                        </Link>
+                      </>
+                    )}
                     <Link
-                      href="/dashboard"
-                      className="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                      href="/dashboard/settings"
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      <LayoutDashboard size={16} />
-                      Dashboard
-                    </Link>
-                    <Link
-                      href="/dashboard/purchases"
-                      className="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-muted transition-colors"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <ShoppingBag size={16} />
-                      Purchases
-                    </Link>
-                    <Link
-                      href="/dashboard/following"
-                      className="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-muted transition-colors"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Users size={16} />
-                      Following
+                      <Settings size={16} />
+                      Settings
                     </Link>
                     <div className="border-t-2 border-border" />
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
                     >
                       <LogOut size={16} />
                       Log out
@@ -136,8 +178,14 @@ export default function Navbar() {
                   Login
                 </Link>
                 <Link
-                  href="/signup"
-                  className="brutal-btn bg-primary text-primary-foreground text-sm"
+                  href="/signup?role=customer"
+                  className="px-4 py-2 font-semibold text-sm hover:bg-muted transition-colors"
+                >
+                  Sign Up
+                </Link>
+                <Link
+                  href="/signup?role=creator"
+                  className="brutal-btn bg-primary text-primary-foreground text-sm font-bold"
                 >
                   Start Selling
                 </Link>
@@ -168,15 +216,18 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <div className="flex gap-2 pt-2">
+          <div className="pt-2">
+            <ThemeToggle showLabel className="w-full justify-center py-2.5" />
+          </div>
+          <div className="flex gap-2 pt-1">
             {user ? (
               <>
                 <Link
-                  href="/dashboard"
+                  href={isCreator ? "/dashboard" : "/dashboard/purchases"}
                   className="brutal-btn bg-card flex-1 text-center text-sm"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Dashboard
+                  {isCreator ? "Dashboard" : "Purchases"}
                 </Link>
                 <button
                   onClick={() => {
@@ -202,7 +253,7 @@ export default function Navbar() {
                   className="brutal-btn bg-primary text-primary-foreground flex-1 text-center text-sm"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Start Selling
+                  Sign Up
                 </Link>
               </>
             )}

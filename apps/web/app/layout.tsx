@@ -14,16 +14,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('digistore-theme')||'dark';if(t==='light'){document.documentElement.classList.add('light');document.documentElement.classList.remove('dark');}else{document.documentElement.classList.add('dark');document.documentElement.classList.remove('light');}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="antialiased">
         {children}
         <Toaster
           position="bottom-right"
           toastOptions={{
             style: {
-              border: "2px solid hsl(50 6% 25%)",
-              boxShadow: "4px 4px 0px hsl(50 6% 25%)",
+              border: "2px solid hsl(var(--border))",
+              boxShadow: "var(--shadow-brutal)",
               borderRadius: "0",
+              background: "hsl(var(--card))",
+              color: "hsl(var(--card-foreground))",
               fontFamily: "var(--font-body)",
             },
           }}

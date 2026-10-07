@@ -9,6 +9,7 @@
   },
     "scripts": {
     "build": "tsc -b",
+    "check-types": "tsc --noEmit",
     "dev": "bun --watch src/index.ts",
     "start": "bun dist/index.js"
   },

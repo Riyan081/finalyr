@@ -16,9 +16,9 @@ import { formatPrice, CATEGORY_COLORS, CATEGORY_LABELS } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
-  published: "bg-digi-mint text-primary-foreground",
+  published: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
   draft: "bg-muted text-muted-foreground",
-  archived: "bg-digi-peach text-primary-foreground",
+  archived: "bg-orange-500/20 text-orange-400 border-orange-500/40",
 };
 
 const formatDate = (iso: string) => {

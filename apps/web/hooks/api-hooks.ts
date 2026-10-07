@@ -21,9 +21,17 @@ import {
   type PublicCreatorProfile,
   type FeaturedCreator,
   type Pagination,
-  type AuthUser,
   type AdminStats,
   type AdminUser,
+  type AdminProduct,
+  type AdminOrder,
+  type AdminPayout,
+  type AdminSystemHealth,
+  licenseApi,
+  membershipApi,
+  type CreatorLicenseKey,
+  type MembershipItem,
+  type CreatorMembersData,
 } from "@/lib/api";
 
 // ─── Generic async state ─────────────────────────────────────────────────────
@@ -223,10 +231,48 @@ export function useAdminStats() {
   return useAsync<AdminStats>(() => adminApi.getStats(), []);
 }
 
-export function useAllUsers() {
-  return useAsync<AdminUser[]>(() => adminApi.getUsers(), []);
+export function useAllUsers(params?: { search?: string; role?: string }) {
+  return useAsync<AdminUser[]>(() => adminApi.getUsers(params), [params?.search, params?.role]);
+}
+
+export function useAdminProducts(params?: { search?: string; status?: string }) {
+  return useAsync<AdminProduct[]>(() => adminApi.getProducts(params), [params?.search, params?.status]);
+}
+
+export function useAdminOrders(params?: { search?: string; status?: string }) {
+  return useAsync<AdminOrder[]>(() => adminApi.getOrders(params), [params?.search, params?.status]);
+}
+
+export function useAdminPayouts(params?: { status?: string }) {
+  return useAsync<AdminPayout[]>(() => adminApi.getPayouts(params), [params?.status]);
+}
+
+export function useAdminSystemHealth() {
+  return useAsync<AdminSystemHealth>(() => adminApi.getSystemHealth(), []);
 }
 
 export function usePremiumFeatures() {
   return useAsync<string[]>(() => premiumApi.getFeatures(), []);
 }
+
+// ─── Memberships & Licenses ──────────────────────────────────────────────────
+
+export function useMySubscriptions() {
+  return useAsync<MembershipItem[]>(() => membershipApi.getMySubscriptions(), []);
+}
+
+export function useCreatorMembers() {
+  return useAsync<CreatorMembersData>(() => membershipApi.getCreatorMembers(), []);
+}
+
+export function useMembershipAccess(productId: string) {
+  return useAsync<{ hasAccess: boolean; membership?: MembershipItem }>(
+    () => membershipApi.checkAccess(productId),
+    [productId]
+  );
+}
+
+export function useCreatorLicenseKeys() {
+  return useAsync<CreatorLicenseKey[]>(() => licenseApi.getCreatorKeys(), []);
+}
+

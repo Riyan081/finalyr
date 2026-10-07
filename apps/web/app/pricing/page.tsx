@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ArrowRight, Sparkles } from "lucide-react";
+import { ChevronDown, ArrowRight } from "lucide-react";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import { usePremiumFeatures } from "@/hooks/api-hooks";

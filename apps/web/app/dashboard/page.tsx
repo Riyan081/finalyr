@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import {
-  TrendingUp,
   DollarSign,
   ShoppingCart,
   Eye,
   PlusCircle,
   BarChart3,
-  Loader2,
   Users,
   Wallet,
 } from "lucide-react";
@@ -149,7 +147,7 @@ export default function DashboardPage() {
                       {new Date(sale.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <span className="font-bold text-sm shrink-0 bg-digi-mint text-primary-foreground px-2 py-1 brutal-border text-xs">
+                  <span className="font-bold text-sm shrink-0 bg-emerald-500/20 text-emerald-400 border-emerald-500/40 px-2 py-1 brutal-border text-xs">
                     +{formatPrice(sale.amountCents, "usd")}
                   </span>
                 </div>

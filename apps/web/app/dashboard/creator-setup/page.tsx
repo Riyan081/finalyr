@@ -119,7 +119,6 @@ export default function CreatorSetupPage() {
   }, [username]);
 
   const canProceedStep0 = usernameStatus === "available";
-  const canProceedStep1 = true; // bio + color are optional
   const canSubmit =
     username && usernameStatus === "available";
 

@@ -2,7 +2,7 @@ import axios from "axios";
 
 // ─── Axios Instance ─────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -192,15 +192,60 @@ export const userApi = {
 };
 
 export const adminApi = {
-  /** GET /api/admin/stats (admin auth required) */
+  /** GET /api/admin/stats */
   getStats: async () => {
     const res = await api.get("/api/admin/stats");
     return unwrap<AdminStats>(res);
   },
-  /** GET /api/users */
-  getUsers: async () => {
-    const res = await api.get("/api/users");
+  /** GET /api/admin/users */
+  getUsers: async (params?: { search?: string; role?: string }) => {
+    const res = await api.get("/api/admin/users", { params });
     return unwrap<AdminUser[]>(res);
+  },
+  /** PATCH /api/admin/users/:id/role */
+  updateUserRole: async (id: string, role: string) => {
+    const res = await api.patch(`/api/admin/users/${id}/role`, { role });
+    return unwrap<{ id: string; role: string }>(res);
+  },
+  /** POST /api/admin/users/:id/ban */
+  banUser: async (id: string, banned: boolean, reason?: string) => {
+    const res = await api.post(`/api/admin/users/${id}/ban`, { banned, reason });
+    return unwrap<AdminUser>(res);
+  },
+  /** GET /api/admin/products */
+  getProducts: async (params?: { search?: string; status?: string }) => {
+    const res = await api.get("/api/admin/products", { params });
+    return unwrap<AdminProduct[]>(res);
+  },
+  /** PATCH /api/admin/products/:id */
+  moderateProduct: async (id: string, data: { status?: string; isListedOnDiscover?: boolean }) => {
+    const res = await api.patch(`/api/admin/products/${id}`, data);
+    return unwrap<{ id: string; status: string; isListedOnDiscover: boolean }>(res);
+  },
+  /** GET /api/admin/orders */
+  getOrders: async (params?: { search?: string; status?: string }) => {
+    const res = await api.get("/api/admin/orders", { params });
+    return unwrap<AdminOrder[]>(res);
+  },
+  /** POST /api/admin/orders/:id/refund */
+  refundOrder: async (id: string) => {
+    const res = await api.post(`/api/admin/orders/${id}/refund`);
+    return unwrap<AdminOrder>(res);
+  },
+  /** GET /api/admin/payouts */
+  getPayouts: async (params?: { status?: string }) => {
+    const res = await api.get("/api/admin/payouts", { params });
+    return unwrap<AdminPayout[]>(res);
+  },
+  /** POST /api/admin/payouts/:id/process */
+  processPayout: async (id: string) => {
+    const res = await api.post(`/api/admin/payouts/${id}/process`);
+    return unwrap<AdminPayout>(res);
+  },
+  /** GET /api/admin/system */
+  getSystemHealth: async () => {
+    const res = await api.get("/api/admin/system");
+    return unwrap<AdminSystemHealth>(res);
   },
 };
 
@@ -430,8 +475,49 @@ export interface AuthUser {
 }
 
 export interface AdminStats {
-  totalUsers: number;
-  activeSessions: number;
+  totalUsers?: number;
+  activeSessions?: number;
+  users?: {
+    total: number;
+    creators: number;
+    customers: number;
+    admins: number;
+    activeSessions: number;
+  };
+  products?: {
+    total: number;
+    published: number;
+    drafts: number;
+  };
+  orders?: {
+    total: number;
+    completed: number;
+  };
+  financials?: {
+    totalVolumeCents: number;
+    platformRevenueCents: number;
+    creatorEarningsCents: number;
+  };
+  recentSales?: Array<{
+    id: string;
+    amountCents: number;
+    currency: string;
+    status: string;
+    createdAt: string;
+    customerEmail: string;
+    customerName?: string | null;
+    paymentProvider: string;
+    product: { id: string; name: string; slug: string };
+  }>;
+  topProducts?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    priceCents: number;
+    salesCount: number;
+    revenueCents: number;
+    creator: { id: string; name: string; username: string | null };
+  }>;
 }
 
 export interface AdminUser {
@@ -440,7 +526,100 @@ export interface AdminUser {
   email: string;
   role: string;
   image?: string | null;
+  username?: string | null;
+  emailVerified?: boolean;
+  banned?: boolean | null;
+  banReason?: string | null;
   createdAt: string;
+  _count?: {
+    products: number;
+    orders: number;
+    payouts: number;
+  };
+}
+
+export interface AdminProduct {
+  id: string;
+  name: string;
+  slug: string;
+  summary?: string | null;
+  priceCents: number;
+  currency: string;
+  productType: string;
+  status: string;
+  isListedOnDiscover: boolean;
+  category?: string | null;
+  salesCount: number;
+  revenueCents: number;
+  createdAt: string;
+  creator: {
+    id: string;
+    name: string;
+    username: string | null;
+    email: string;
+    image?: string | null;
+  };
+}
+
+export interface AdminOrder {
+  id: string;
+  amountCents: number;
+  currency: string;
+  platformFeeCents: number;
+  processingFeeCents: number;
+  creatorRevenueCents: number;
+  paymentProvider: string;
+  status: string;
+  createdAt: string;
+  refundedAt?: string | null;
+  customerEmail: string;
+  customerName?: string | null;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  customer?: {
+    id: string;
+    name: string;
+    image?: string | null;
+  } | null;
+}
+
+export interface AdminPayout {
+  id: string;
+  amountCents: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  completedAt?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  creator: {
+    id: string;
+    name: string;
+    username?: string | null;
+    email: string;
+    payoutSchedule: string;
+  };
+}
+
+export interface AdminSystemHealth {
+  status: string;
+  database: {
+    status: string;
+    latencyMs: number;
+  };
+  activeSessions: number;
+  platformFeePercent: number;
+  services: {
+    polarPayments: boolean;
+    razorpayPayments: boolean;
+    storageS3: boolean;
+  };
+  environment: string;
+  uptimeSeconds: number;
+  nodeVersion: string;
 }
 
 export interface AnalyticsOverview {
@@ -712,3 +891,125 @@ export interface DiscountCode { id: string; code: string; discountType: "percent
 export interface DiscountValidation { discount: { id: string; code: string; type: "percentage" | "fixed"; value: number; }; originalPriceCents: number; discountedPriceCents: number; savingsCents: number; }
 export interface CreateDiscountPayload { productId: string; code: string; discountType: "percentage" | "fixed"; discountValue: number; maxUses?: number | null; validUntil?: string | null; }
 export interface CreateVariantPayload { name: string; priceCents: number; description?: string; sortOrder?: number; }
+
+// ─── Licenses & DRM ─────────────────────────────────────────────────────────
+
+export interface LicenseVerifyResult {
+  success: boolean;
+  valid: boolean;
+  message: string;
+  uses?: number;
+  maxUses?: number;
+  key?: string;
+  product?: { id: string; name: string; slug: string };
+  order?: { id: string; customerEmail: string; customerName?: string | null; createdAt: string };
+}
+
+export interface CreatorLicenseKey {
+  id: string;
+  licenseKey: string;
+  uses: number;
+  maxUses: number;
+  isDisabled: boolean;
+  createdAt: string;
+  product: { id: string; name: string; slug: string };
+  order: { id: string; customerEmail: string; createdAt: string };
+}
+
+export const licenseApi = {
+  /** POST /api/licenses/verify */
+  verify: async (licenseKey: string, incrementUses: boolean = true) => {
+    const res = await api.post("/api/licenses/verify", { licenseKey, incrementUses });
+    return unwrap<LicenseVerifyResult>(res);
+  },
+  /** POST /api/licenses/decrement */
+  decrement: async (licenseKey: string) => {
+    const res = await api.post("/api/licenses/decrement", { licenseKey });
+    return unwrap<LicenseVerifyResult>(res);
+  },
+  /** GET /api/licenses/creator-keys */
+  getCreatorKeys: async () => {
+    const res = await api.get("/api/licenses/creator-keys");
+    return unwrap<CreatorLicenseKey[]>(res);
+  },
+  /** POST /api/licenses/:id/toggle */
+  toggleKey: async (id: string) => {
+    const res = await api.post(`/api/licenses/${id}/toggle`);
+    return unwrap<{ id: string; licenseKey: string; isDisabled: boolean }>(res);
+  },
+};
+
+// ─── Memberships & Subscriptions ───────────────────────────────────────────
+
+export interface MembershipItem {
+  id: string;
+  createdAt: string;
+  status: "active" | "paused" | "cancelled" | "past_due";
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelledAt?: string | null;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    priceCents: number;
+    currency: string;
+    recurrence?: string | null;
+    creator?: {
+      id: string;
+      name: string;
+      username?: string | null;
+      image?: string | null;
+    };
+  };
+  customer?: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string | null;
+  };
+}
+
+export interface CreatorMembersData {
+  stats: {
+    totalMembers: number;
+    activeMembers: number;
+    cancelledMembers: number;
+    mrrCents: number;
+  };
+  members: MembershipItem[];
+}
+
+export const membershipApi = {
+  /** POST /api/memberships/subscribe */
+  subscribe: async (productId: string, recurrence?: "monthly" | "yearly") => {
+    const res = await api.post("/api/memberships/subscribe", { productId, recurrence });
+    return unwrap<{ membership: MembershipItem; orderId: string; isExtension: boolean }>(res);
+  },
+  /** GET /api/memberships/my-subscriptions */
+  getMySubscriptions: async () => {
+    const res = await api.get("/api/memberships/my-subscriptions");
+    return unwrap<MembershipItem[]>(res);
+  },
+  /** GET /api/memberships/creator-members */
+  getCreatorMembers: async () => {
+    const res = await api.get("/api/memberships/creator-members");
+    return unwrap<CreatorMembersData>(res);
+  },
+  /** POST /api/memberships/:id/cancel */
+  cancel: async (id: string) => {
+    const res = await api.post(`/api/memberships/${id}/cancel`);
+    return unwrap<MembershipItem>(res);
+  },
+  /** POST /api/memberships/:id/renew (Simulate recurring renewal) */
+  renew: async (id: string) => {
+    const res = await api.post(`/api/memberships/${id}/renew`);
+    return unwrap<MembershipItem>(res);
+  },
+  /** GET /api/memberships/access/:productId */
+  checkAccess: async (productId: string) => {
+    const res = await api.get(`/api/memberships/access/${productId}`);
+    return unwrap<{ hasAccess: boolean; membership?: MembershipItem }>(res);
+  },
+};

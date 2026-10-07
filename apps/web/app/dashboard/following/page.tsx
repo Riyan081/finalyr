@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, UserPlus, RefreshCw, Loader2, UserMinus, ExternalLink, Package } from "lucide-react";
+import { Users, UserPlus, RefreshCw, Loader2, UserMinus, ExternalLink } from "lucide-react";
 import { followersApi, type FollowingItem } from "@/lib/api";
 import { formatPrice } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -87,7 +87,7 @@ export default function FollowingPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {following.map(({ id, creator, followedAt }) => (
+          {following.map(({ id, creator }) => (
             <div key={id} className="brutal-card p-6 flex flex-col justify-between">
               <div>
                 {/* Creator Header */}

@@ -4,8 +4,17 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { authClient } from "@repo/auth/client";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import Navbar from "@/components/navbar";
 import DashboardSidebar from "@/components/dashboard-sidebar";
+
+const CREATOR_ONLY_ROUTES = [
+  "/dashboard/products",
+  "/dashboard/analytics",
+  "/dashboard/orders",
+  "/dashboard/discounts",
+  "/dashboard/memberships",
+];
 
 export default function DashboardLayout({
   children,
@@ -27,12 +36,24 @@ export default function DashboardLayout({
       return;
     }
 
-    // Logged in but not a creator yet → redirect to setup
-    // (unless already on the setup page)
     const user = session.user as any;
     const isCreator = user.role === "creator" || Boolean(user.username);
-    if (!isCreator && !isSetupRoute) {
+
+    // If user is not a creator and visits root /dashboard, send them to their purchases library
+    if (!isCreator && pathname === "/dashboard") {
+      router.push("/dashboard/purchases");
+      return;
+    }
+
+    // If trying to access creator-only tools without being a creator, redirect to setup
+    const isCreatorOnlyRoute = CREATOR_ONLY_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+    if (!isCreator && isCreatorOnlyRoute && !isSetupRoute) {
+      toast.info("Set up your creator profile to access seller features");
       router.push("/dashboard/creator-setup");
+      return;
     }
   }, [session, isPending, router, pathname, isSetupRoute]);
 
