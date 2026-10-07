@@ -38,6 +38,7 @@ services:
 
   # ─── Database Migrations (run once, then exit) ────────────────────
   db-migrate:
+    image: tearcake/finalyr-api:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
@@ -51,6 +52,7 @@ services:
 
   # ─── Backend (Express API) ────────────────────────────────────────
   backend:
+    image: tearcake/finalyr-api:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
@@ -95,6 +97,7 @@ services:
 
   # ─── Frontend (Next.js) ──────────────────────────────────────────
   frontend:
+    image: tearcake/finalyr-web:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
@@ -120,6 +123,7 @@ services:
 
   # ─── WebSocket Server ────────────────────────────────────────────
   ws:
+    image: tearcake/finalyr-ws:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.ws
