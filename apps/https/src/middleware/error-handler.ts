@@ -29,6 +29,15 @@ export function globalErrorHandler(
     return;
   }
 
+  // Multer errors (e.g. LIMIT_FILE_SIZE)
+  if (err.name === "MulterError") {
+    res.status(400).json({
+      error: "BAD_REQUEST",
+      message: err.message,
+    });
+    return;
+  }
+
   // Unknown errors — log and send generic message
   console.error("[ERROR]", err);
   res.status(500).json({

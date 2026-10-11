@@ -13,6 +13,7 @@ import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/png",
   "image/jpeg",
+  "image/jpg",
   "image/gif",
   "image/webp",
 ]);
@@ -71,7 +72,7 @@ export const fileUploadService = {
     );
 
     // Upload file buffer to MinIO via presigned URL
-    await fetch(uploadUrl, {
+    const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       body: new Uint8Array(file.buffer),
       headers: {
@@ -79,6 +80,12 @@ export const fileUploadService = {
         "Content-Length": String(file.size),
       },
     });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      console.error(`[FileUpload] S3 upload failed with status ${uploadRes.status}:`, errText);
+      throw new Error(`Storage upload failed (${uploadRes.status}): ${errText}`);
+    }
 
     // Get current max sort order
     const lastFile = await prisma.productFile.findFirst({
@@ -181,20 +188,28 @@ export const fileUploadService = {
       throw new BadRequestError("Thumbnail size exceeds the 10 MB limit");
     }
 
-    // Use generateFileKey from storage package for consistency
-    const fileKey = generateFileKey(productId, `thumbnail.${file.mimetype.split("/")[1] || "png"}`);
+    const ext = file.mimetype === "image/jpeg" ? "jpg" : (file.mimetype.split("/")[1] || "png");
+    const thumbnailFileName = `thumbnail.${ext}`;
 
     await ensureBucketExists();
 
     // Generate presigned URL for thumbnail
-    const { uploadUrl } = await generateUploadUrl(
-      productId,
-      `thumbnail.${file.mimetype.split("/")[1] || "png"}`,
-      file.mimetype,
-      file.size
-    );
+    let uploadUrl: string;
+    let fileKey: string;
+    try {
+      const generated = await generateUploadUrl(
+        productId,
+        thumbnailFileName,
+        file.mimetype,
+        file.size
+      );
+      uploadUrl = generated.uploadUrl;
+      fileKey = generated.fileKey;
+    } catch (err: any) {
+      throw new BadRequestError(err.message);
+    }
 
-    await fetch(uploadUrl, {
+    const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       body: new Uint8Array(file.buffer),
       headers: {
@@ -202,6 +217,12 @@ export const fileUploadService = {
         "Content-Length": String(file.size),
       },
     });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      console.error(`[FileUpload] S3 thumbnail upload failed with status ${uploadRes.status}:`, errText);
+      throw new Error(`Storage upload failed (${uploadRes.status}): ${errText}`);
+    }
 
     // Build the public URL for the thumbnail
     const s3Endpoint = process.env.S3_ENDPOINT || "http://localhost:9000";

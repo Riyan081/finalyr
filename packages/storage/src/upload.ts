@@ -13,7 +13,9 @@ const ALLOWED_MIME_TYPES = [
   // Images
   "image/png",
   "image/jpeg",
+  "image/jpg",
   "image/webp",
+  "image/gif",
   "image/svg+xml",
   // Audio
   "audio/mpeg",

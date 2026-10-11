@@ -1,4 +1,5 @@
 import multer from "multer";
+import { BadRequestError } from "../utils/errors.js";
 
 /**
  * Multer configuration for file uploads.
@@ -28,11 +29,11 @@ export const thumbnailUpload = multer({
     files: 1,
   },
   fileFilter: (_req, file, cb) => {
-    const allowed = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+    const allowed = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only PNG, JPEG, GIF, and WebP images are allowed"));
+      cb(new BadRequestError("Only PNG, JPEG, GIF, and WebP images are allowed"));
     }
   },
 });
