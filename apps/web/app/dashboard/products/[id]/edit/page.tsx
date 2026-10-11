@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft, X, Plus, Upload, Trash2, Loader2,
-  Image as ImageIcon, FileText, CheckCircle2, AlertCircle,
+  Image as ImageIcon, FileText, CheckCircle2, AlertCircle, Sparkles,
 } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/mock-data";
 import {
   productsApi, fileUploadApi, variantsApi,
-  type ApiProduct, type ProductFile, type ProductVariant,
+  type ApiProduct, type ProductFile, type ProductVariant, type GenerateCopyResponse,
 } from "@/lib/api";
+import CreatorAIStudioModal from "@/components/creator-ai-studio-modal";
 import { toast } from "sonner";
 
 const PRODUCT_TYPES = [
@@ -56,6 +57,19 @@ export default function EditProductPage() {
   const [maxPurchaseCount, setMaxPurchaseCount] = useState("");
   const [callToAction, setCallToAction] = useState("I want this!");
   const [status, setStatus] = useState<"draft" | "published" | "archived">("draft");
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+
+  const handleApplyAiCopy = (generated: GenerateCopyResponse) => {
+    setName(generated.name);
+    setSummary(generated.summary);
+    setDescription(generated.description);
+    if (generated.category) setCategory(generated.category);
+    if (generated.tags && generated.tags.length > 0) setTags(generated.tags);
+    if (generated.callToAction) setCallToAction(generated.callToAction);
+    if (generated.suggestedPriceCents > 0) {
+      setPriceStr((generated.suggestedPriceCents / 100).toFixed(2));
+    }
+  };
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [uploadingThumb, setUploadingThumb] = useState(false);
   const thumbInputRef = useRef<HTMLInputElement>(null);
@@ -252,6 +266,13 @@ export default function EditProductPage() {
               Publish
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setAiModalOpen(true)}
+            className="brutal-btn bg-digi-pink text-black font-bold text-sm flex items-center gap-1.5"
+          >
+            <Sparkles size={14} /> AI Studio
+          </button>
           <button onClick={handleSave} disabled={saving} className="brutal-btn bg-primary text-primary-foreground font-bold flex items-center gap-2 disabled:opacity-60">
             {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <CheckCircle2 size={14} /> : null}
             {saving ? "Saving..." : saved ? "Saved!" : "Save Changes"}
@@ -504,6 +525,14 @@ export default function EditProductPage() {
           </button>
         </div>
       </div>
+
+      {/* Creator AI Studio Modal */}
+      <CreatorAIStudioModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        initialCategory={category}
+        onApply={handleApplyAiCopy}
+      />
     </>
   );
 }

@@ -10,6 +10,7 @@ import {
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import ProductCard from "@/components/product-card";
+import SmartRecommendations from "@/components/smart-recommendations";
 import { usePublicProduct, useTrendingProducts, useMembershipAccess } from "@/hooks/api-hooks";
 import { CATEGORY_COLORS } from "@/lib/mock-data";
 import {
@@ -773,10 +774,13 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
+        {/* AI Smart Product Recommendations */}
+        <SmartRecommendations currentProductId={product.id} />
+
         {/* Related / Trending */}
         {trendingProducts && trendingProducts.length > 0 && (
           <div className="mt-16">
-            <h2 className="font-heading font-black text-2xl mb-6">You might also like</h2>
+            <h2 className="font-heading font-black text-2xl mb-6">More from Trending Creators</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {trendingProducts
                 .filter((p) => p.id !== product.id)

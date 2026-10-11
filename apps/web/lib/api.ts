@@ -1013,3 +1013,79 @@ export const membershipApi = {
     return unwrap<{ hasAccess: boolean; membership?: MembershipItem }>(res);
   },
 };
+
+// ─── Artificial Intelligence & Machine Learning ───────────────────────────
+
+export interface SemanticSearchResultItem {
+  id: string;
+  name: string;
+  slug: string;
+  summary: string | null;
+  priceCents: number;
+  category: string | null;
+  thumbnailUrl: string | null;
+  creator: {
+    name: string;
+    username: string | null;
+  };
+  matchScore: number;
+  matchReason: string;
+}
+
+export interface RecommendationItem {
+  id: string;
+  name: string;
+  slug: string;
+  summary: string | null;
+  priceCents: number;
+  category: string | null;
+  thumbnailUrl: string | null;
+  ratingAvg: number;
+  creator: {
+    name: string;
+    username: string | null;
+  };
+  matchScore: number;
+  recommendationType: "semantic" | "co-purchased" | "category-top";
+  badgeText: string;
+}
+
+export interface GenerateCopyResponse {
+  name: string;
+  summary: string;
+  description: string;
+  category: string;
+  tags: string[];
+  suggestedPriceCents: number;
+  callToAction: string;
+  keyFeatures: string[];
+}
+
+export const aiApi = {
+  /** GET /api/ai/semantic-search */
+  semanticSearch: async (q: string, limit = 12, category?: string) => {
+    const res = await api.get("/api/ai/semantic-search", {
+      params: { q, limit, category },
+    });
+    return unwrap<SemanticSearchResultItem[]>(res);
+  },
+
+  /** GET /api/ai/recommendations/:productId */
+  getRecommendations: async (productId: string, limit = 4) => {
+    const res = await api.get(`/api/ai/recommendations/${productId}`, {
+      params: { limit },
+    });
+    return unwrap<RecommendationItem[]>(res);
+  },
+
+  /** POST /api/ai/generate-copy */
+  generateCopy: async (data: {
+    concept: string;
+    category?: string;
+    tone?: "persuasive" | "technical" | "minimal" | "storytelling" | "indie";
+    targetAudience?: string;
+  }) => {
+    const res = await api.post("/api/ai/generate-copy", data);
+    return unwrap<GenerateCopyResponse>(res);
+  },
+};

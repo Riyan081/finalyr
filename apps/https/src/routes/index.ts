@@ -17,6 +17,7 @@ import discountRoutes from "./discount.routes.js";
 import licenseRoutes from "./license.routes.js";
 import membershipRoutes from "./membership.routes.js";
 import drmRoutes from "./drm.routes.js";
+import aiRoutes from "./ai.routes.js";
 
 const router: ExpressRouter = Router();
 
@@ -53,6 +54,9 @@ router.use("/api/licenses", licenseRoutes);
 
 // ─── PDF Stamping / DRM ──────────────────────────────────────────
 router.use("/api/drm", drmRoutes);
+
+// ─── Artificial Intelligence & Machine Learning ───────────────────
+router.use("/api/ai", aiRoutes);
 
 // ─── Checkout + Payments ─────────────────────────────────────────
 router.use("/api/checkout", checkoutRoutes);

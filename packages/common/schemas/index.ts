@@ -53,3 +53,14 @@ export type {
   UpdateCreatorInput,
   CreatorUsernameParams,
 } from "./creator.schema.js";
+
+export {
+  generateCopyInputSchema,
+  generatedCopyOutputSchema,
+  semanticSearchQuerySchema,
+} from "./ai.schema.js";
+export type {
+  GenerateCopyInput,
+  GeneratedCopyOutput,
+  SemanticSearchQuery,
+} from "./ai.schema.js";

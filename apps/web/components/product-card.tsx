@@ -2,11 +2,31 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { type DiscoverProduct, formatPrice, CATEGORY_COLORS } from "@/lib/mock-data";
 
-interface ProductCardProps {
-  product: DiscoverProduct;
+export interface ProductCardItem {
+  id: string;
+  name: string;
+  slug: string;
+  thumbnailUrl?: string | null;
+  category?: string | null;
+  priceCents: number;
+  currency?: string;
+  isPayWhatYouWant?: boolean;
+  ratingAvg?: number;
+  salesCount?: number;
+  creator?: {
+    name?: string;
+    username?: string | null;
+    image?: string | null;
+  } | null;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+interface ProductCardProps {
+  product: ProductCardItem;
+  matchScore?: number;
+  matchReason?: string;
+}
+
+export default function ProductCard({ product, matchScore, matchReason }: ProductCardProps) {
   const category = product.category || "other";
   const colorClass = CATEGORY_COLORS[category] || "bg-digi-pink";
 
@@ -18,7 +38,10 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const displayPrice = product.isPayWhatYouWant
     ? "Pay what you want"
-    : formatPrice(product.priceCents, product.currency);
+    : formatPrice(product.priceCents, product.currency || "USD");
+
+  const ratingAvg = product.ratingAvg ?? 0;
+  const salesCount = product.salesCount ?? 0;
 
   return (
     <Link href={href} className="block">
@@ -39,6 +62,12 @@ export default function ProductCard({ product }: ProductCardProps) {
               </span>
             </div>
           )}
+          {/* AI Match Badge */}
+          {matchScore !== undefined && (
+            <div className="absolute top-3 left-3 bg-digi-mint text-black brutal-border px-2.5 py-0.5 text-xs font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+              ✨ {matchScore}% Match
+            </div>
+          )}
           {/* Price Tag */}
           <div className="absolute top-3 right-3 bg-card brutal-border px-3 py-1 font-bold text-sm">
             {displayPrice}
@@ -52,7 +81,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={product.creator.image}
-                alt={product.creator.name}
+                alt={product.creator.name || ""}
                 className="w-5 h-5 rounded-full brutal-border"
               />
             ) : (
@@ -71,14 +100,20 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
 
+          {matchReason && (
+            <p className="text-[11px] text-muted-foreground font-mono bg-muted/60 px-2 py-1 rounded border border-border/50 truncate" title={matchReason}>
+              💡 {matchReason}
+            </p>
+          )}
+
           <div className="flex items-center gap-1">
             <Star size={12} className="fill-digi-yellow text-digi-yellow" />
             <span className="text-xs font-semibold">
-              {product.ratingAvg > 0 ? product.ratingAvg.toFixed(1) : "New"}
+              {ratingAvg > 0 ? ratingAvg.toFixed(1) : "New"}
             </span>
-            {product.salesCount > 0 && (
+            {salesCount > 0 && (
               <span className="text-xs text-muted-foreground">
-                ({product.salesCount} sold)
+                ({salesCount} sold)
               </span>
             )}
           </div>

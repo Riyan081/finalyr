@@ -3,9 +3,10 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, X, Plus, Info, Upload, Trash2, Loader2, Image as ImageIcon, FileText } from "lucide-react";
+import { ArrowLeft, X, Plus, Info, Upload, Trash2, Loader2, Image as ImageIcon, FileText, Sparkles } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/mock-data";
-import { productsApi, fileUploadApi, variantsApi, type ProductFile, type ProductVariant } from "@/lib/api";
+import { productsApi, fileUploadApi, variantsApi, type ProductFile, type ProductVariant, type GenerateCopyResponse } from "@/lib/api";
+import CreatorAIStudioModal from "@/components/creator-ai-studio-modal";
 import { toast } from "sonner";
 
 const PRODUCT_TYPES = [
@@ -61,6 +62,19 @@ export default function NewProductPage() {
   const [callToAction, setCallToAction] = useState("I want this!");
 
   const [submitting, setSubmitting] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+
+  const handleApplyAiCopy = (generated: GenerateCopyResponse) => {
+    setName(generated.name);
+    setSummary(generated.summary);
+    setDescription(generated.description);
+    if (generated.category) setCategory(generated.category);
+    if (generated.tags && generated.tags.length > 0) setTags(generated.tags);
+    if (generated.callToAction) setCallToAction(generated.callToAction);
+    if (generated.suggestedPriceCents > 0) {
+      setPriceStr((generated.suggestedPriceCents / 100).toFixed(2));
+    }
+  };
 
   // ─── Step 2: after creation ──────────────────────────────────────
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
@@ -250,7 +264,22 @@ export default function NewProductPage() {
         <ArrowLeft size={16} /> Back to Products
       </Link>
 
-      <h1 className="font-heading font-black text-3xl mb-8">New Product</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="font-heading font-black text-3xl">New Product</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Publish a digital download, course, bundle, or membership.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAiModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-digi-pink text-black font-black text-sm brutal-btn"
+        >
+          <Sparkles size={16} />
+          Creator AI Studio
+        </button>
+      </div>
 
       <form className="space-y-6">
         {/* ── Product Type ── */}
@@ -651,6 +680,14 @@ export default function NewProductPage() {
           <button type="button" onClick={() => router.push("/dashboard/products")} className="brutal-btn bg-primary text-primary-foreground font-bold w-full py-3 text-center">Done � View My Products</button>
         </div>
       )}
+
+      {/* Creator AI Studio Modal */}
+      <CreatorAIStudioModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        initialCategory={category}
+        onApply={handleApplyAiCopy}
+      />
     </>
   );
 }
