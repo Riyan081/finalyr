@@ -324,158 +324,496 @@ export class AIService {
 
   // ─── 3. Creator AI Studio Copywriting & SEO Generator ─────────────────────
   async generateCopy(input: GenerateCopyInput): Promise<GeneratedCopyOutput> {
-    const { concept, category, tone = "persuasive", targetAudience } = input;
-
-    // Detect likely category if not specified
-    let detectedCategory = category || "software";
-    const lowerConcept = concept.toLowerCase();
-
-    if (lowerConcept.includes("figma") || lowerConcept.includes("ui") || lowerConcept.includes("icon")) {
-      detectedCategory = "design";
-    } else if (lowerConcept.includes("blend") || lowerConcept.includes("3d") || lowerConcept.includes("shader")) {
-      detectedCategory = "3d";
-    } else if (lowerConcept.includes("beat") || lowerConcept.includes("audio") || lowerConcept.includes("sample")) {
-      detectedCategory = "music";
-    } else if (lowerConcept.includes("preset") || lowerConcept.includes("lightroom") || lowerConcept.includes("photo")) {
-      detectedCategory = "photography";
-    } else if (lowerConcept.includes("notion") || lowerConcept.includes("startup") || lowerConcept.includes("pitch")) {
-      detectedCategory = "business";
-    } else if (lowerConcept.includes("novel") || lowerConcept.includes("book") || lowerConcept.includes("story")) {
-      detectedCategory = "fiction";
-    } else if (lowerConcept.includes("brush") || lowerConcept.includes("draw") || lowerConcept.includes("paint")) {
-      detectedCategory = "drawing";
-    } else if (lowerConcept.includes("course") || lowerConcept.includes("learn") || lowerConcept.includes("guide")) {
-      detectedCategory = "education";
+    // 1. If GEMINI_API_KEY or OPENAI_API_KEY is configured, attempt real LLM generation
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const llmResult = await this.generateCopyWithGemini(input);
+        if (llmResult) return llmResult;
+      } catch (err) {
+        console.warn("[AIService] Gemini LLM call failed, falling back to Domain Engine:", err);
+      }
     }
 
-    // Capitalize concept terms for title synthesis
-    const cleanConceptWords = concept.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-    const titleRoot = cleanConceptWords.slice(0, 5).join(" ");
+    // 2. High-Precision Context-Aware Domain Engine (100% offline resilient)
+    return this.generateCopyWithDomainEngine(input);
+  }
 
-    // Tone modifiers
-    const toneHooks: Record<string, { prefix: string; hook: string; cta: string }> = {
-      persuasive: {
-        prefix: "Pro",
-        hook: "Supercharge your workflow and ship 10x faster with production-grade assets.",
-        cta: "Get Instant Access",
-      },
-      technical: {
-        prefix: "Engineered",
-        hook: "Architected for high-performance and strict engineering standards. Zero bloat.",
-        cta: "Download Tool",
-      },
-      minimal: {
-        prefix: "Essential",
-        hook: "Clean, distraction-free toolkit refined to perfection.",
-        cta: "Buy Now",
-      },
-      storytelling: {
-        prefix: "Mastery",
-        hook: "Unlock the exact blueprints distilled from years of real-world mastery.",
-        cta: "Start Exploring",
-      },
-      indie: {
-        prefix: "Indie",
-        hook: "Built by a bootstrapped creator for builders who value time and craftsmanship.",
-        cta: "I want this!",
-      },
-    };
+  /**
+   * Real LLM Bridge: Calls Google Gemini 1.5 Flash when GEMINI_API_KEY is configured
+   */
+  private async generateCopyWithGemini(input: GenerateCopyInput): Promise<GeneratedCopyOutput | null> {
+    const { concept, category, tone = "persuasive", targetAudience } = input;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
 
-    const defaultTone = {
-      prefix: "Ultimate",
-      hook: "Engineered to deliver high performance, immediate utility, and professional polish.",
-      cta: "Get Instant Access",
-    };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
 
-    const activeTone = (tone && toneHooks[tone]) ? toneHooks[tone] : defaultTone;
-    const name = `${titleRoot} — ${activeTone.prefix} Edition`;
-    const summary = `${activeTone.hook} Ideal for ${targetAudience || "builders, designers, and creators"}.`;
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const prompt = `You are a world-class digital product copywriter. Generate marketing copy for:
+Product Concept: "${concept}"
+Category: "${category || 'other'}"
+Copywriting Tone: "${tone}" (one of: persuasive, technical, minimal, storytelling, indie)
+Target Audience: "${targetAudience || 'general customers'}"
 
-    // Markdown description builder
+Return ONLY a single valid JSON object (no markdown code blocks, no backticks, no explanations) matching this exact format:
+{
+  "name": "Product title with tone-specific subtitle",
+  "summary": "1-2 sentence compelling summary tailored specifically to the subject and target audience",
+  "description": "Full formatted Markdown description containing: # Product Title, summary paragraph, ### ⚡ What's Inside (4 highly detailed emoji bullet points strictly relevant to the product subject), ### 🎯 Who This Is For (2 targeted bullet points), and a believable verified customer review quote block.",
+  "category": "${category || 'other'}",
+  "tags": ["5", "to", "7", "relevant", "lowercase", "tags"],
+  "suggestedPriceCents": 1900,
+  "callToAction": "Action-oriented button text",
+  "keyFeatures": ["Feature 1", "Feature 2", "Feature 3", "Feature 4"]
+}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.7,
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) return null;
+
+      const data = (await res.json()) as any;
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) return null;
+
+      const parsed = JSON.parse(rawText);
+      if (parsed.name && parsed.summary && parsed.description) {
+        return {
+          name: String(parsed.name),
+          summary: String(parsed.summary),
+          description: String(parsed.description),
+          category: String(parsed.category || category || "other"),
+          tags: Array.isArray(parsed.tags) ? parsed.tags.map(String) : ["digital", "guide"],
+          suggestedPriceCents: typeof parsed.suggestedPriceCents === "number" ? parsed.suggestedPriceCents : 2900,
+          callToAction: String(parsed.callToAction || "Get Instant Access"),
+          keyFeatures: Array.isArray(parsed.keyFeatures) ? parsed.keyFeatures.map(String) : [],
+        };
+      }
+    } catch {
+      clearTimeout(timeoutId);
+    }
+    return null;
+  }
+
+  /**
+   * Advanced Context-Aware Domain Engine
+   * Detects niche (Fitness/Diet, Software, Design, Business, Education, etc.)
+   * and crafts tailored, professional copywriting without tech boilerplate.
+   */
+  private generateCopyWithDomainEngine(input: GenerateCopyInput): GeneratedCopyOutput {
+    const { concept, category, tone = "persuasive", targetAudience } = input;
+    const lowerConcept = concept.toLowerCase();
+    const cleanAudience = targetAudience?.trim() || "";
+
+    // Capitalize concept terms for clean title synthesis
+    const cleanWords = concept
+      .replace(/[^\w\s-]/g, "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    const baseTitle = cleanWords.slice(0, 5).join(" ");
+
+    // ─── Domain Classification ──────────────────────────────────────────
+    type DomainType =
+      | "fitness"
+      | "software"
+      | "design"
+      | "business"
+      | "3d"
+      | "music"
+      | "photography"
+      | "fiction"
+      | "education"
+      | "general";
+
+    let domain: DomainType = "general";
+
+    if (
+      lowerConcept.includes("gym") ||
+      lowerConcept.includes("diet") ||
+      lowerConcept.includes("fitness") ||
+      lowerConcept.includes("workout") ||
+      lowerConcept.includes("macro") ||
+      lowerConcept.includes("nutrition") ||
+      lowerConcept.includes("muscle") ||
+      lowerConcept.includes("meal") ||
+      lowerConcept.includes("protein") ||
+      lowerConcept.includes("calorie") ||
+      lowerConcept.includes("fat loss") ||
+      lowerConcept.includes("weight") ||
+      lowerConcept.includes("exercise") ||
+      lowerConcept.includes("shred") ||
+      lowerConcept.includes("bulk")
+    ) {
+      domain = "fitness";
+    } else if (
+      lowerConcept.includes("code") ||
+      lowerConcept.includes("software") ||
+      lowerConcept.includes("nextjs") ||
+      lowerConcept.includes("react") ||
+      lowerConcept.includes("api") ||
+      lowerConcept.includes("typescript") ||
+      lowerConcept.includes("python") ||
+      lowerConcept.includes("saas") ||
+      lowerConcept.includes("boilerplate") ||
+      lowerConcept.includes("starter") ||
+      lowerConcept.includes("developer") ||
+      lowerConcept.includes("backend") ||
+      lowerConcept.includes("frontend") ||
+      lowerConcept.includes("automation") ||
+      lowerConcept.includes("bot")
+    ) {
+      domain = "software";
+    } else if (
+      lowerConcept.includes("figma") ||
+      lowerConcept.includes("ui") ||
+      lowerConcept.includes("ux") ||
+      lowerConcept.includes("design") ||
+      lowerConcept.includes("component") ||
+      lowerConcept.includes("wireframe") ||
+      lowerConcept.includes("mockup") ||
+      lowerConcept.includes("icon") ||
+      lowerConcept.includes("typography") ||
+      lowerConcept.includes("layout") ||
+      lowerConcept.includes("color palette")
+    ) {
+      domain = "design";
+    } else if (
+      lowerConcept.includes("3d") ||
+      lowerConcept.includes("blender") ||
+      lowerConcept.includes("shader") ||
+      lowerConcept.includes("render") ||
+      lowerConcept.includes("mesh") ||
+      lowerConcept.includes("game asset") ||
+      lowerConcept.includes("unity") ||
+      lowerConcept.includes("unreal")
+    ) {
+      domain = "3d";
+    } else if (
+      lowerConcept.includes("notion") ||
+      lowerConcept.includes("startup") ||
+      lowerConcept.includes("crm") ||
+      lowerConcept.includes("operating system") ||
+      lowerConcept.includes("finance") ||
+      lowerConcept.includes("pitch") ||
+      lowerConcept.includes("invest") ||
+      lowerConcept.includes("marketing") ||
+      lowerConcept.includes("planner") ||
+      lowerConcept.includes("tracker") ||
+      lowerConcept.includes("budget")
+    ) {
+      domain = "business";
+    } else if (
+      lowerConcept.includes("music") ||
+      lowerConcept.includes("audio") ||
+      lowerConcept.includes("beat") ||
+      lowerConcept.includes("sample") ||
+      lowerConcept.includes("synth") ||
+      lowerConcept.includes("mixing") ||
+      lowerConcept.includes("stem") ||
+      lowerConcept.includes("vocal")
+    ) {
+      domain = "music";
+    } else if (
+      lowerConcept.includes("photo") ||
+      lowerConcept.includes("preset") ||
+      lowerConcept.includes("lightroom") ||
+      lowerConcept.includes("camera") ||
+      lowerConcept.includes("lut") ||
+      lowerConcept.includes("color grading")
+    ) {
+      domain = "photography";
+    } else if (
+      lowerConcept.includes("novel") ||
+      lowerConcept.includes("book") ||
+      lowerConcept.includes("writing") ||
+      lowerConcept.includes("story") ||
+      lowerConcept.includes("author") ||
+      lowerConcept.includes("manuscript") ||
+      lowerConcept.includes("screenplay")
+    ) {
+      domain = "fiction";
+    } else if (
+      lowerConcept.includes("course") ||
+      lowerConcept.includes("tutorial") ||
+      lowerConcept.includes("masterclass") ||
+      lowerConcept.includes("curriculum") ||
+      lowerConcept.includes("exam") ||
+      lowerConcept.includes("student") ||
+      lowerConcept.includes("study guide") ||
+      lowerConcept.includes("cheat sheet")
+    ) {
+      domain = "education";
+    }
+
+    // ─── Domain Specific Content Profiles ──────────────────────────────
+    let name = "";
+    let summary = "";
+    let insideBullets: string[] = [];
+    let whoBullets: string[] = [];
+    let testimonial = "";
+    let tags: string[] = [];
+    let suggestedPriceCents = 2900;
+    let callToAction = "Get Instant Access";
+    let keyFeatures: string[] = [];
+    let assignedCategory = category || "other";
+
+    if (domain === "fitness") {
+      assignedCategory = category && category !== "software" ? category : "other";
+      suggestedPriceCents = 1900;
+      callToAction = "Get The Diet Plan";
+      tags = ["fitness", "gym", "diet-plan", "meal-prep", "macros", "nutrition", "healthy-eating"];
+      keyFeatures = [
+        "Customized Calorie & Macro Calculator",
+        "7-Day Whole-Food Meal Prep Framework",
+        "Pre & Post-Workout Fueling Matrix",
+        "Printable Weekly Grocery Shopping Guide",
+      ];
+
+      const toneTitles: Record<string, string> = {
+        minimal: `${baseTitle} — Essential Edition`,
+        persuasive: `${baseTitle} — Ultimate Body Transformation Protocol`,
+        technical: `${baseTitle} — Precision Macro & Nutrient Timing Blueprint`,
+        storytelling: `${baseTitle} — The Mind & Muscle Nutrition Journey`,
+        indie: `${baseTitle} — The Real Food Field Guide`,
+      };
+      name = (tone && toneTitles[tone]) ? toneTitles[tone]! : `${baseTitle} — Essential Edition`;
+
+      const defaultSummary = `A clean, distraction-free daily nutrition and meal prep framework designed to fuel intense workouts and simplify healthy eating for ${cleanAudience || "fitness enthusiasts"}.`;
+      const toneSummaries: Record<string, string> = {
+        minimal: defaultSummary,
+        persuasive: `Transform your physique, torch body fat, and build lean muscle with a high-protein nutrition plan engineered specifically for ${cleanAudience || "dedicated gym lifters"}.`,
+        technical: `Calculated macronutrient timing, metabolic caloric targets, and science-backed nutritional protocols optimized for ${cleanAudience || "serious athletes and lifters"}.`,
+        storytelling: `The sustainable whole-food diet philosophy that helps you break through strength plateaus without extreme starvation. Perfect for ${cleanAudience || "fitness enthusiasts"}.`,
+        indie: `No fad diets or sponsored powders—just a realistic, battle-tested meal blueprint built for ${cleanAudience || "everyday gym lifters"}.`,
+      };
+      summary = (tone && toneSummaries[tone]) ? toneSummaries[tone]! : defaultSummary;
+
+      insideBullets = [
+        "🥗 **Targeted Calorie & Macro Protocols**: Customized protein, carb, and healthy fat splits tailored for muscle growth, fat loss, or lean maintenance.",
+        "🥩 **7-Day Structured Meal Framework**: Simple, high-protein whole-food meals with exact portion weights, prep times, and grocery lists.",
+        "⚡ **Pre & Post-Workout Fueling Matrix**: Strategic nutrient timing rules to fuel heavy lifting sessions and accelerate muscle protein synthesis.",
+        "📋 **Printable Weekly Meal Prep & Pantry Checklist**: Printable shopping guide and batch-cooking timetable to eliminate dietary guesswork.",
+      ];
+
+      whoBullets = [
+        `Specifically designed for **${cleanAudience || "fitness enthusiasts"}** who want a clear, sustainable eating routine without counting every grain of rice.`,
+        "Anyone tired of contradictory fitness influencer advice looking for an actionable, proven daily food plan.",
+      ];
+
+      testimonial =
+        '> "Finally, a diet plan that is actually sustainable. Dropped 4% body fat in 8 weeks while adding 15kg to my deadlift without feeling starved." — Mark R., Verified Lifter';
+    } else if (domain === "software") {
+      assignedCategory = "software";
+      suggestedPriceCents = 4900;
+      callToAction = "Download Codebase";
+      tags = ["software", "devtools", "boilerplate", "typescript", "starter-kit", "webdev"];
+      keyFeatures = [
+        "TypeScript Strict Mode & Clean Architecture",
+        "Pre-Configured Authentication & Database",
+        "Modular REST & WebSocket Route Handlers",
+        "Commercial Self-Hosted Deployment License",
+      ];
+
+      const toneTitles: Record<string, string> = {
+        minimal: `${baseTitle} — Minimal Dev Edition`,
+        persuasive: `${baseTitle} — Production-Ready Starter Kit`,
+        technical: `${baseTitle} — Architecture & Enterprise Blueprint`,
+        storytelling: `${baseTitle} — The Solo Hacker Stack`,
+        indie: `${baseTitle} — Ship-In-Days Boilerplate`,
+      };
+      name = (tone && toneTitles[tone]) ? toneTitles[tone]! : `${baseTitle} — Pro Edition`;
+
+      summary = `Production-grade architecture with zero fluff. Skip 40+ hours of repetitive setup and ship immediately. Tailored for ${cleanAudience || "software developers and indie hackers"}.`;
+
+      insideBullets = [
+        "🚀 **Production-Tested Codebase**: Full source code with strict TypeScript, clean architecture, and modular edge-ready routes.",
+        "🔐 **Pre-Configured Authentication & Database**: Built-in Better-Auth, Prisma ORM migrations, and session management.",
+        "🛠️ **Developer Setup & Architecture Guide**: Step-by-step documentation with CLI scripts, environment templates, and deploy scripts.",
+        "📦 **Perpetual Commercial License**: Full rights for personal projects, client deliverables, and commercial endeavors.",
+      ];
+
+      whoBullets = [
+        `Specifically designed for **${cleanAudience || "developers and tech founders"}** who value time and want to launch fast.`,
+        "Engineers tired of wiring up auth, databases, and Docker configurations from scratch on every new project.",
+      ];
+
+      testimonial =
+        '> "Saved me over 40 hours of setup on my latest SaaS launch. Clean architecture, zero bloat, and worked straight out of the box." — Sarah K., Fullstack Engineer';
+    } else if (domain === "design") {
+      assignedCategory = "design";
+      suggestedPriceCents = 3900;
+      callToAction = "Open in Figma";
+      tags = ["figma", "ui-kit", "design-system", "components", "responsive", "ui-design"];
+      keyFeatures = [
+        "500+ Component Variants with Auto-Layout 5.0",
+        "Calibrated Dark & Light Mode Color Tokens",
+        "WCAG AAA Accessible Typography Scale",
+        "Pre-Built Responsive Screen Templates",
+      ];
+
+      name = `${baseTitle} — Figma UI System`;
+      summary = `Pixel-perfect component library with responsive design tokens and dark/light modes. Crafted for ${cleanAudience || "UI/UX designers and frontend developers"}.`;
+
+      insideBullets = [
+        "🎨 **500+ Component Variants**: Inputs, buttons, modals, cards, and navigation bars built with Figma Auto-Layout 5.0.",
+        "🌓 **Dual Theme Token Harmonizer**: Seamless dark and light mode color scales mapped directly to Tailwind CSS variables.",
+        "📐 **Ready-to-Ship Page Layouts**: High-converting landing pages, dashboard tables, and mobile checkout templates.",
+        "🔤 **Typography & Icon Assets**: Complete font hierarchy scales with a curated vector icon collection.",
+      ];
+
+      whoBullets = [
+        `Specifically designed for **${cleanAudience || "designers and product teams"}** looking to accelerate interface delivery.`,
+        "Builders wanting modern aesthetic polish without hiring an expensive design agency.",
+      ];
+
+      testimonial =
+        '> "The component architecture is immaculate. Cut our redesign sprint in half while dramatically elevating our design consistency." — Alex T., Design Lead';
+    } else if (domain === "business") {
+      assignedCategory = "business";
+      suggestedPriceCents = 3400;
+      callToAction = "Duplicate Notion Workspace";
+      tags = ["notion", "productivity", "business", "planner", "system", "operations", "startup"];
+      keyFeatures = [
+        "Centralized KPI & Revenue Dashboard",
+        "Connected Projects & Task Relational Databases",
+        "Client CRM & Invoice Tracking System",
+        "Standard Operating Procedures (SOP) Library",
+      ];
+
+      name = `${baseTitle} — Executive Operating System`;
+      summary = `The all-in-one productivity workspace to streamline operations, track metrics, and manage projects. Designed for ${cleanAudience || "founders, freelancers, and operators"}.`;
+
+      insideBullets = [
+        "📊 **Executive Command Dashboard**: High-level views of active milestones, daily priorities, and financial health.",
+        "🔄 **Relational Databases & CRM**: Interlinked tables for clients, contracts, meeting notes, and payment statuses.",
+        "📑 **Standard Operating Playbooks (SOPs)**: Pre-formatted templates for client onboarding, quarterly reviews, and team delegation.",
+        "📈 **Financial Modeling & Cash Flow Projections**: Automated formulas to track MRR, expenses, and profit margins.",
+      ];
+
+      whoBullets = [
+        `Specifically designed for **${cleanAudience || "solo founders and entrepreneurs"}** managing multiple client projects.`,
+        "Anyone feeling overwhelmed by scattered notes and looking for a cohesive operational cockpit.",
+      ];
+
+      testimonial =
+        '> "Completely eliminated administrative chaos in my business. Saves me at least 6 hours every single week." — James O., Agency Owner';
+    } else if (domain === "education") {
+      assignedCategory = "education";
+      suggestedPriceCents = 2900;
+      callToAction = "Access Study Guide";
+      tags = ["education", "course", "study-guide", "tutorial", "masterclass", "learning"];
+      keyFeatures = [
+        "Step-by-Step Structured Learning Curriculum",
+        "High-Yield Concept Cheat Sheets & Summary Cards",
+        "Practical Hands-On Exercises & Solution Keys",
+        "Lifetime Access to Future Curriculum Revisions",
+      ];
+
+      name = `${baseTitle} — Masterclass & Study Guide`;
+      summary = `Master fundamental concepts and real-world techniques through structured, high-yield lessons. Ideal for ${cleanAudience || "students and self-directed learners"}.`;
+
+      insideBullets = [
+        "📚 **Comprehensive Learning Modules**: Logically sequenced units that break complex topics into digestible steps.",
+        "📝 **High-Yield Cheat Sheets**: Quick-reference summary sheets and mental models for rapid recall and exam prep.",
+        "🎯 **Practical Application Exercises**: Challenging practice problems with detailed step-by-step solutions.",
+        "💡 **Curated Resource Compendium**: Recommended reading lists, software tools, and reference documentation.",
+      ];
+
+      whoBullets = [
+        `Specifically designed for **${cleanAudience || "students and ambitious learners"}** looking to accelerate mastery.`,
+        "Anyone who wants a clear, structured roadmap instead of watching endless disjointed YouTube tutorials.",
+      ];
+
+      testimonial =
+        '> "Clear, concise, and straight to the point. Concepts that took weeks to grasp in class clicked within two days." — Elena R., Student Review';
+    } else {
+      // General Product Synthesizer (Any arbitrary niche or concept)
+      assignedCategory = category || "other";
+      suggestedPriceCents = 2400;
+      callToAction = "Get Instant Access";
+      tags = [
+        cleanWords[0]?.toLowerCase() || "digital",
+        cleanWords[1]?.toLowerCase() || "guide",
+        "handbook",
+        "templates",
+        "action-plan",
+        "resources",
+      ];
+      keyFeatures = [
+        `Step-by-Step Comprehensive Roadmap for ${baseTitle}`,
+        "Actionable Templates, Worksheets & Checklists",
+        "Curated Resource Directory & Best Practices",
+        "Lifetime Access with Future Revisions Included",
+      ];
+
+      const toneTitles: Record<string, string> = {
+        minimal: `${baseTitle} — Essential Edition`,
+        persuasive: `${baseTitle} — The Complete Master Blueprint`,
+        technical: `${baseTitle} — Systematic Field Guide & Standards`,
+        storytelling: `${baseTitle} — The Practical Handbook & Journey`,
+        indie: `${baseTitle} — The No-BS Action Plan`,
+      };
+      name = (tone && toneTitles[tone]) ? toneTitles[tone]! : `${baseTitle} — Essential Edition`;
+
+      summary = `A comprehensive, step-by-step digital resource designed to save you hours of trial and error with actionable frameworks and practical templates. Tailored for ${cleanAudience || "creators, enthusiasts, and practitioners"}.`;
+
+      insideBullets = [
+        `📘 **Complete Step-by-Step Methodology**: In-depth, organized walkthroughs of core techniques and workflows for ${baseTitle}.`,
+        "📋 **Actionable Templates & Printable Checklists**: Real-world worksheets and tools designed to streamline execution and eliminate mistakes.",
+        "💡 **Resource Directory & Insider Tips**: Curated reference lists, common pitfalls to avoid, and expert shortcuts.",
+        "🔄 **Lifetime Updates & Future Revisions**: Continuous access to updated materials and bonus additions as new techniques emerge.",
+      ];
+
+      whoBullets = [
+        `Specifically designed for **${cleanAudience || "enthusiasts and practitioners"}** who want a clear, proven framework.`,
+        `Anyone tired of trial-and-error searching who wants an actionable, all-in-one resource for ${baseTitle}.`,
+      ];
+
+      testimonial =
+        '> "An exceptionally organized resource that cut weeks off my learning curve. Everything is practical and ready to use immediately." — Verified Patron Review';
+    }
+
+    // ─── Format Final Markdown Description ─────────────────────────────
     const description = `# ${name}
 
 ${summary}
 
 ### ⚡ What's Inside:
-- 🚀 **Production-Tested Assets**: Fully modular, verified, and ready to drop directly into your projects.
-- 🛠️ **Comprehensive Guide & Documentation**: Step-by-step setup manual with tips and best practices.
-- 🎨 **Source Files & Raw Deliverables**: Lifetime access to high-resolution assets and future patch updates.
-- 🔒 **Commercial-Ready Licensing**: Full permission for personal and client-facing commercial endeavors.
+${insideBullets.map((b) => `- ${b}`).join("\n")}
 
 ### 🎯 Who This Is For:
-${targetAudience ? `- Specifically designed for **${targetAudience}** looking for exceptional craftsmanship.` : "- Developers, creators, and indie founders who value high-leverage tools."}
-- Anyone tired of spending days reinventing wheels from scratch.
+${whoBullets.map((b) => `- ${b}`).join("\n")}
 
-> "A massive time-saver that paid for itself within the first hour of use." — Verified Patron Review`;
-
-    // Category-specific price & tag defaults
-    const categoryConfigs: Record<string, { tags: string[]; price: number; features: string[] }> = {
-      software: {
-        tags: ["software", "devtools", "boilerplate", "typescript", "starter-kit"],
-        price: 4900,
-        features: ["TypeScript strict mode", "Instant setup guide", "Commercial license"],
-      },
-      design: {
-        tags: ["figma", "ui-kit", "design-system", "components", "responsive"],
-        price: 3900,
-        features: ["Auto-layout 5.0", "Dark/Light tokens", "Figma component variants"],
-      },
-      "3d": {
-        tags: ["blender", "3d-assets", "game-ready", "textures", "pbr-shaders"],
-        price: 5900,
-        features: ["PBR material maps", "Sub-D geometry", "Optimized polycount"],
-      },
-      music: {
-        tags: ["samples", "beats", "audio-stems", "analog-synth", "mixing"],
-        price: 2900,
-        features: ["24-bit 48kHz WAV", "100% Royalty Free", "Key & BPM labeled"],
-      },
-      photography: {
-        tags: ["lightroom", "presets", "colorist", "editorial", "lut"],
-        price: 3400,
-        features: ["Desktop & Mobile presets", "Natural skin-tone preservation", "XMP & DNG files"],
-      },
-      fiction: {
-        tags: ["novel", "worldbuilding", "writing", "scifi", "templates"],
-        price: 2400,
-        features: ["Character archetype matrices", "Plot progression outlines", "Scrivener & PDF"],
-      },
-      business: {
-        tags: ["notion", "operating-system", "saas", "pitch-deck", "finance"],
-        price: 6900,
-        features: ["Financial model template", "Automated dashboards", "Fundraising playbook"],
-      },
-      drawing: {
-        tags: ["procreate", "brushes", "digital-art", "anatomy", "illustration"],
-        price: 2200,
-        features: ["Custom pressure curve", "Hi-res texture grains", "Brushstroke tutorial"],
-      },
-      education: {
-        tags: ["course", "masterclass", "tutorial", "curriculum", "guide"],
-        price: 4500,
-        features: ["Step-by-step video breakdown", "Code repositories", "Self-assessment exercises"],
-      },
-    };
-
-    const defaultConfig = {
-      tags: ["software", "devtools", "boilerplate", "typescript", "starter-kit"],
-      price: 4900,
-      features: ["TypeScript strict mode", "Instant setup guide", "Commercial license"],
-    };
-
-    const config = categoryConfigs[detectedCategory] || defaultConfig;
+${testimonial}
+`;
 
     return {
       name,
       summary,
       description,
-      category: detectedCategory,
-      tags: config.tags,
-      suggestedPriceCents: config.price,
-      callToAction: activeTone.cta,
-      keyFeatures: config.features,
+      category: assignedCategory,
+      tags,
+      suggestedPriceCents,
+      callToAction,
+      keyFeatures,
     };
   }
 }
 
 export const aiService = new AIService();
+
