@@ -12,6 +12,7 @@ import {
   type PaginatedResponse,
 } from "../utils/pagination.js";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.js";
+import { buildProductSearchFilter } from "../utils/search-query.js";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -87,6 +88,8 @@ export const productService = {
         isListedOnDiscover: data.isListedOnDiscover,
         maxPurchaseCount: data.maxPurchaseCount,
         callToAction: data.callToAction,
+        watermarkPdf: data.watermarkPdf !== undefined ? data.watermarkPdf : true,
+        hasLicenseKeys: data.hasLicenseKeys !== undefined ? data.hasLicenseKeys : (data.category === "software"),
         category: data.category,
         tags: data.tags,
         systemRequirements: data.systemRequirements,
@@ -202,11 +205,10 @@ export const productService = {
     if (status) where.status = status;
     if (productType) where.productType = productType;
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { summary: { contains: search, mode: "insensitive" } },
-        { tags: { has: search.toLowerCase() } },
-      ];
+      const searchFilter = buildProductSearchFilter(search);
+      if (searchFilter.OR) {
+        where.OR = searchFilter.OR;
+      }
     }
 
     const [products, total] = await Promise.all([

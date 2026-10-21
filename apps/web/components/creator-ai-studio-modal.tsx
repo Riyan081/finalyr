@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Loader2, X, Check, ArrowRight, Wand2, Tag, DollarSign, FileText } from "lucide-react";
+import { Sparkles, Loader2, X, Check, ArrowRight, Wand2, Tag, IndianRupee, FileText } from "lucide-react";
 import { aiApi, type GenerateCopyResponse } from "@/lib/api";
 import { CATEGORY_LABELS } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -191,7 +191,7 @@ export default function CreatorAIStudioModal({
                   <Check size={14} className="text-green-500" /> AI Generated Blueprint
                 </span>
                 <span className="text-xs font-bold px-2 py-0.5 bg-digi-mint text-black border border-black">
-                  Optimal Price: ${(result.suggestedPriceCents / 100).toFixed(2)}
+                  Optimal Price: ₹{(result.suggestedPriceCents / 100).toLocaleString("en-IN")}
                 </span>
               </div>
 

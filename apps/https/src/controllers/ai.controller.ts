@@ -18,13 +18,14 @@ export class AIController {
         return;
       }
 
-      const results = await aiService.semanticSearch(q, limit, category);
+      const { results, didYouMean } = await aiService.semanticSearch(q, limit, category);
 
       res.json({
         success: true,
         data: results,
         total: results.length,
         query: q,
+        didYouMean: didYouMean || null,
       });
     } catch (error) {
       console.error("[AIController.semanticSearch] Error:", error);

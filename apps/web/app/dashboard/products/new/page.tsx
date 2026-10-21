@@ -7,6 +7,7 @@ import { ArrowLeft, X, Plus, Info, Upload, Trash2, Loader2, Image as ImageIcon, 
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/mock-data";
 import { productsApi, fileUploadApi, variantsApi, type ProductFile, type ProductVariant, type GenerateCopyResponse } from "@/lib/api";
 import CreatorAIStudioModal from "@/components/creator-ai-studio-modal";
+import SoftwareLicenseSnippets from "@/components/software-license-snippets";
 import { toast } from "sonner";
 
 const PRODUCT_TYPES = [
@@ -51,13 +52,15 @@ export default function NewProductPage() {
 
   // ─── Pricing ────────────────────────────────────────────────────
   const [priceStr, setPriceStr] = useState("");
-  const [currency] = useState("usd");
+  const [currency] = useState("inr");
   const [isPayWhatYouWant, setIsPayWhatYouWant] = useState(false);
   const [minPriceStr, setMinPriceStr] = useState("0");
   const [suggestedPriceStr, setSuggestedPriceStr] = useState("");
 
   // ─── Settings ───────────────────────────────────────────────────
   const [isListedOnDiscover, setIsListedOnDiscover] = useState(true);
+  const [watermarkPdf, setWatermarkPdf] = useState(true);
+  const [hasLicenseKeys, setHasLicenseKeys] = useState(false);
   const [maxPurchaseCount, setMaxPurchaseCount] = useState("");
   const [callToAction, setCallToAction] = useState("I want this!");
 
@@ -151,6 +154,8 @@ export default function NewProductPage() {
         tags,
         systemRequirements: category === "software" ? systemRequirements.trim() || null : null,
         isListedOnDiscover,
+        watermarkPdf,
+        hasLicenseKeys,
         maxPurchaseCount: maxPurchaseCount
           ? parseInt(maxPurchaseCount, 10)
           : null,
@@ -380,7 +385,13 @@ export default function NewProductPage() {
               <label className="block text-sm font-bold mb-2">Category</label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCategory(val);
+                  if (val === "software") {
+                    setHasLicenseKeys(true);
+                  }
+                }}
                 className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none cursor-pointer"
               >
                 <option value="">Select category</option>
@@ -392,24 +403,54 @@ export default function NewProductPage() {
               </select>
             </div>
 
-            {/* System Requirements - shown only for software category */}
+            {/* System Requirements & Software Licensing - shown for software category */}
             {category === "software" && (
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-bold mb-2">
-                  System Requirements{" "}
-                  <span className="text-destructive font-normal">*</span>
-                </label>
-                <textarea
-                  value={systemRequirements}
-                  onChange={(e) => setSystemRequirements(e.target.value)}
-                  placeholder={"Specify the PC/device requirements for your software.\n\nExample:\n- Windows 10 or later / macOS 12+\n- 8 GB RAM minimum\n- 500 MB free disk space\n- DirectX 11 compatible GPU"}
-                  rows={5}
-                  maxLength={5000}
-                  className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {systemRequirements.length}/5000 - Required before publishing
-                </p>
+              <div className="sm:col-span-2 space-y-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2">
+                    System Requirements{" "}
+                    <span className="text-destructive font-normal">*</span>
+                  </label>
+                  <textarea
+                    value={systemRequirements}
+                    onChange={(e) => setSystemRequirements(e.target.value)}
+                    placeholder={"Specify the PC/device requirements for your software.\n\nExample:\n- Windows 10 or later / macOS 12+\n- 8 GB RAM minimum\n- 500 MB free disk space\n- DirectX 11 compatible GPU"}
+                    rows={4}
+                    maxLength={5000}
+                    className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {systemRequirements.length}/5000 - Required before publishing
+                  </p>
+                </div>
+
+                {/* Gumroad-style License Key Toggle */}
+                <div className="p-4 bg-muted/40 brutal-border space-y-2">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasLicenseKeys}
+                      onChange={(e) => setHasLicenseKeys(e.target.checked)}
+                      className="w-4 h-4 accent-primary mt-0.5"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold">
+                          Generate a unique license key per sale
+                        </span>
+                        <span className="text-[10px] font-mono uppercase bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-bold">
+                          Gumroad v2
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Each customer receives a cryptographic serial key (<code>DIGI-XXXX-XXXX-XXXX</code>) to activate and license your software on up to 5 devices.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Multi-language Integration Snippets */}
+                {hasLicenseKeys && <SoftwareLicenseSnippets />}
               </div>
             )}
 
@@ -480,7 +521,7 @@ export default function NewProductPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  Minimum Price ($)
+                  Minimum Price (₹)
                 </label>
                 <input
                   type="number"
@@ -488,13 +529,13 @@ export default function NewProductPage() {
                   onChange={(e) => setMinPriceStr(e.target.value)}
                   placeholder="0"
                   min="0"
-                  step="0.01"
+                  step="1"
                   className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  Suggested Price ($)
+                  Suggested Price (₹)
                 </label>
                 <input
                   type="number"
@@ -502,7 +543,7 @@ export default function NewProductPage() {
                   onChange={(e) => setSuggestedPriceStr(e.target.value)}
                   placeholder="Optional"
                   min="0"
-                  step="0.01"
+                  step="1"
                   className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -510,19 +551,19 @@ export default function NewProductPage() {
           ) : (
             <div>
               <label className="block text-sm font-bold mb-2">
-                Price ($) <span className="text-destructive">*</span>
+                Price (₹) <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
                 value={priceStr}
                 onChange={(e) => setPriceStr(e.target.value)}
-                placeholder="9.99"
+                placeholder="499"
                 min="0"
-                step="0.01"
+                step="1"
                 className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Set to $0 for a free product.
+                Set to ₹0 for a free product.
               </p>
             </div>
           )}
@@ -573,6 +614,30 @@ export default function NewProductPage() {
               List on Discover page
             </span>
           </label>
+
+          <div className="p-4 bg-muted/40 brutal-border space-y-2">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={watermarkPdf}
+                onChange={(e) => setWatermarkPdf(e.target.checked)}
+                className="w-4 h-4 accent-primary mt-0.5"
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold">
+                    Automatically watermark Creator Name on PDF files
+                  </span>
+                  <span className="text-[10px] font-mono uppercase bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-bold">
+                    PDF DRM
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  When enabled, any PDF product files will automatically have your creator name and copyright notice stamped onto page headers and footers upon download.
+                </p>
+              </div>
+            </label>
+          </div>
 
           <div>
             <label className="block text-sm font-bold mb-2">

@@ -149,7 +149,7 @@ model Product {
 
   // ─ Pricing
   priceCents         Int     @default(0)
-  currency           String  @default("usd")
+  currency           String  @default("inr")
   isPayWhatYouWant   Boolean @default(false)
   minPriceCents      Int     @default(0)
   suggestedPriceCents Int?
@@ -170,6 +170,8 @@ model Product {
   isListedOnDiscover Boolean @default(true)
   maxPurchaseCount  Int?    // Limit total sales
   callToAction     String  @default("I want this!")
+  watermarkPdf     Boolean @default(true) // Automatically watermark creator name on PDF deliverables
+  hasLicenseKeys   Boolean @default(false) // Generate unique license key per sale
 
   // ─ Categorization
   category String?
@@ -266,7 +268,7 @@ model Order {
 
   // ─ Payment
   amountCents          Int
-  currency             String @default("usd")
+  currency             String @default("inr")
   platformFeeCents     Int    @default(0) // 10% platform cut
   processingFeeCents   Int    @default(0) // Stripe fee
   creatorRevenueCents  Int    @default(0) // amount - all fees
@@ -461,7 +463,7 @@ model Payout {
   creator   User   @relation(fields: [creatorId], references: [id])
 
   amountCents BigInt
-  currency    String @default("usd")
+  currency    String @default("inr")
 
   stripeTransferId String?
 

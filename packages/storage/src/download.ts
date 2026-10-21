@@ -39,3 +39,14 @@ export async function deleteFile(fileKey: string): Promise<void> {
     })
   );
 }
+
+/**
+ * Fetch a readable stream for a file from S3 / MinIO.
+ */
+export async function getFileStream(fileKey: string) {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: fileKey,
+  });
+  return storageClient.send(command);
+}

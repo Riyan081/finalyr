@@ -3,10 +3,10 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, Key, CheckCircle, Loader2, FileText, Package, Star, Trash2, Send, ShieldCheck, ShieldAlert, Laptop, Terminal, RefreshCw, Copy, Check } from "lucide-react";
+import { Download, CheckCircle, Loader2, FileText, Package, Star, Trash2, Send, Key, Copy, Check, ShieldCheck } from "lucide-react";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
-import { checkoutApi, reviewsApi, licenseApi, API_BASE, type OrderDetail, type DownloadOrderInfo, type LicenseVerifyResult } from "@/lib/api";
+import { checkoutApi, reviewsApi, type OrderDetail, type DownloadOrderInfo } from "@/lib/api";
 import { formatPrice } from "@/lib/mock-data";
 import { toast } from "sonner";
 
@@ -25,6 +25,7 @@ export default function PurchaseSuccessPage() {
   const [downloadInfo, setDownloadInfo] = useState<{ token: string; info: DownloadOrderInfo } | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Review state
   const [reviewRating, setReviewRating] = useState(5);
@@ -32,13 +33,6 @@ export default function PurchaseSuccessPage() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [createdReviewId, setCreatedReviewId] = useState<string | null>(null);
-
-  // License Validator Playground state
-  const [testKey, setTestKey] = useState("");
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [decrementLoading, setDecrementLoading] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<LicenseVerifyResult | null>(null);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -52,9 +46,6 @@ export default function PurchaseSuccessPage() {
           try {
             const dl = await checkoutApi.getDownloadToken(found.id);
             setDownloadInfo({ token: dl.token, info: dl.order });
-            if (dl.order.licenseKeys && dl.order.licenseKeys[0]) {
-              setTestKey(dl.order.licenseKeys[0].licenseKey);
-            }
           } catch {
             // order might not be completed yet
           }
@@ -68,59 +59,28 @@ export default function PurchaseSuccessPage() {
     load();
   }, [orderId]);
 
-  const handleVerify = async (increment = true) => {
-    if (!testKey.trim()) {
-      toast.error("Please enter a license key to verify");
-      return;
-    }
-    setVerifyLoading(true);
-    try {
-      const res = await licenseApi.verify(testKey.trim(), increment);
-      setVerifyResult(res);
-      if (res.valid) {
-        toast.success(res.message || "License key is valid!");
-      } else {
-        toast.error(res.message || "License key is invalid");
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Validation failed");
-    } finally {
-      setVerifyLoading(false);
-    }
-  };
-
-  const handleDecrement = async () => {
-    if (!testKey.trim()) {
-      toast.error("Please enter a license key to deactivate");
-      return;
-    }
-    setDecrementLoading(true);
-    try {
-      const res = await licenseApi.decrement(testKey.trim());
-      setVerifyResult(res);
-      toast.success(res.message || "Device seat released successfully");
-    } catch (e: any) {
-      toast.error(e.message || "Deactivation failed");
-    } finally {
-      setDecrementLoading(false);
-    }
-  };
-
-  const handleDownload = async (fileId: string, fileName: string) => {
+  const handleDownload = (fileId: string, fileName: string) => {
     if (!downloadInfo) return;
-    setDownloadLoading(true);
     try {
       const url = checkoutApi.buildFileDownloadUrl(downloadInfo.token, fileId);
       const a = document.createElement("a");
       a.href = url;
-      a.download = fileName;
+      a.setAttribute("download", fileName);
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+      toast.success(`Downloading "${fileName}"...`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Download failed";
       toast.error("Download failed", { description: msg });
-    } finally {
-      setDownloadLoading(false);
     }
+  };
+
+  const handleCopyKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    setCopiedKey(key);
+    toast.success("License key copied to clipboard!");
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   const handleSubmitReview = async () => {
@@ -197,6 +157,68 @@ export default function PurchaseSuccessPage() {
           )}
         </div>
 
+        {/* License Keys Section */}
+        {((order?.licenseKeys && order.licenseKeys.length > 0) ||
+          (downloadInfo?.info?.licenseKeys && downloadInfo.info.licenseKeys.length > 0)) && (
+          <div className="brutal-card p-6 mb-6 bg-card brutal-border space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 brutal-border text-primary shrink-0">
+                  <Key size={22} />
+                </div>
+                <div>
+                  <h2 className="font-heading font-black text-lg flex items-center gap-2">
+                    {(order?.licenseKeys?.length || downloadInfo?.info?.licenseKeys?.length || 0) > 1
+                      ? "Your Software License Keys"
+                      : "Your Software License Key"}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Use this key to activate and unlock full functionality in your application or plugin.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono uppercase bg-emerald-500 text-white px-2.5 py-1 rounded font-black flex items-center gap-1 shadow-sm">
+                <ShieldCheck size={13} /> Active License
+              </span>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              {(order?.licenseKeys?.length ? order.licenseKeys : (downloadInfo?.info?.licenseKeys || [])).map((lk, idx) => (
+                <div key={idx} className="p-4 bg-muted/40 brutal-border space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-muted-foreground uppercase font-mono">
+                      License #{idx + 1} • {lk.uses} of {lk.maxUses} device seats registered
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyKey(lk.licenseKey)}
+                      className="brutal-btn bg-background hover:bg-muted text-xs font-bold py-1.5 px-3 flex items-center gap-1.5"
+                    >
+                      {copiedKey === lk.licenseKey ? (
+                        <>
+                          <Check size={14} className="text-emerald-500" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Copy Key</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between bg-zinc-950 text-zinc-100 p-3 brutal-border font-mono text-base font-black tracking-wider text-primary select-all overflow-x-auto">
+                    <code>{lk.licenseKey}</code>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    💡 <strong>Activation instructions:</strong> Launch your application (e.g. <code>demo_client_app.py</code>), paste your key above, and click <strong>Activate</strong> to unlock your software.
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Download Files */}
         {downloadInfo && downloadInfo.info.files.length > 0 && (
           <div className="brutal-card mb-6">
@@ -213,14 +235,14 @@ export default function PurchaseSuccessPage() {
                       {formatBytes(file.fileSizeBytes)} • {file.fileType}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleDownload(file.id, file.fileName)}
-                    disabled={downloadLoading}
-                    className="brutal-btn bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1 shrink-0 disabled:opacity-60"
+                  <a
+                    href={checkoutApi.buildFileDownloadUrl(downloadInfo.token, file.id)}
+                    download={file.fileName}
+                    className="brutal-btn bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1 shrink-0"
                   >
                     <Download size={14} />
                     Download
-                  </button>
+                  </a>
                 </div>
               ))}
             </div>
@@ -229,207 +251,6 @@ export default function PurchaseSuccessPage() {
             </div>
           </div>
         )}
-
-        {/* License Keys Display */}
-        {downloadInfo && downloadInfo.info.licenseKeys.length > 0 && (
-          <div className="brutal-card mb-6">
-            <div className="px-6 py-4 border-b-2 border-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Key size={20} className="text-primary" />
-                <h2 className="font-heading font-bold text-lg">Issued License Keys</h2>
-              </div>
-              <span className="text-xs font-bold uppercase px-2 py-0.5 bg-primary/20 text-primary brutal-border">
-                Gumroad v2 Format
-              </span>
-            </div>
-            <div className="divide-y-2 divide-border">
-              {downloadInfo.info.licenseKeys.map((lk, i) => (
-                <div key={i} className="px-6 py-4">
-                  <div className="font-mono text-sm bg-muted p-3 brutal-border mb-2 flex items-center justify-between gap-2">
-                    <span className="font-bold tracking-wider">{lk.licenseKey}</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setTestKey(lk.licenseKey);
-                          toast.info("Key loaded into Validator Playground below!");
-                        }}
-                        className="text-xs bg-card hover:bg-muted px-2 py-1 brutal-border font-semibold"
-                      >
-                        Use in Tester
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(lk.licenseKey);
-                          setCopiedKey(lk.licenseKey);
-                          toast.success("License key copied!");
-                          setTimeout(() => setCopiedKey(null), 2000);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1 font-semibold"
-                      >
-                        {copiedKey === lk.licenseKey ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                        {copiedKey === lk.licenseKey ? "Copied" : "Copy"}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      <strong>{lk.uses}</strong> of <strong>{lk.maxUses}</strong> device seats activated
-                    </span>
-                    {lk.isDisabled ? (
-                      <span className="text-destructive font-bold">● Key Disabled</span>
-                    ) : (
-                      <span className="text-emerald-500 font-bold">● Active & Valid</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Interactive Software License Key Validator Playground */}
-        <div className="brutal-card mb-6 border-2 border-primary/30">
-          <div className="px-6 py-4 border-b-2 border-border flex items-center justify-between bg-primary/5">
-            <div className="flex items-center gap-3">
-              <Terminal size={20} className="text-primary" />
-              <div>
-                <h2 className="font-heading font-bold text-lg">License Validation Playground</h2>
-                <p className="text-xs text-muted-foreground">
-                  Simulate external desktop app or script validation requests against DigiStore&apos;s API
-                </p>
-              </div>
-            </div>
-            <span className="hidden sm:inline-block text-xs bg-muted px-2 py-1 brutal-border font-mono">
-              POST /api/licenses/verify
-            </span>
-          </div>
-
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase mb-1.5 flex items-center justify-between">
-                <span>License Key to Test</span>
-                <span className="text-[11px] text-muted-foreground font-normal">Format: DIGI-XXXX-XXXX-XXXX</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={testKey}
-                  onChange={(e) => setTestKey(e.target.value)}
-                  placeholder="e.g. DIGI-8F3A-4C2B-91E5"
-                  className="brutal-input flex-1 p-2.5 font-mono text-sm uppercase"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handleVerify(true)}
-                disabled={verifyLoading || decrementLoading}
-                className="brutal-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 py-2.5 px-4 disabled:opacity-60"
-              >
-                {verifyLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-                Verify & Activate Seat (+1 Use)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleVerify(false)}
-                disabled={verifyLoading || decrementLoading}
-                className="brutal-btn bg-card hover:bg-muted text-xs font-bold flex items-center gap-1.5 py-2.5 px-4 disabled:opacity-60"
-              >
-                <RefreshCw size={14} />
-                Read-Only Check (0 Uses)
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDecrement}
-                disabled={verifyLoading || decrementLoading}
-                className="brutal-btn bg-destructive/15 hover:bg-destructive/25 text-destructive text-xs font-bold flex items-center gap-1.5 py-2.5 px-4 disabled:opacity-60"
-              >
-                {decrementLoading ? <Loader2 size={14} className="animate-spin" /> : <Laptop size={14} />}
-                Deactivate Seat (Uninstall App)
-              </button>
-            </div>
-
-            {/* Verification Result Output */}
-            {verifyResult && (
-              <div className="mt-4 p-4 brutal-border bg-muted/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {verifyResult.valid ? (
-                      <span className="flex items-center gap-1.5 text-xs font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 brutal-border">
-                        <CheckCircle size={14} /> VALID & LICENSED
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-xs font-bold bg-destructive/20 text-destructive px-2.5 py-1 brutal-border">
-                        <ShieldAlert size={14} /> INVALID / REJECTED
-                      </span>
-                    )}
-                    <span className="text-xs text-foreground font-medium">
-                      {verifyResult.message}
-                    </span>
-                  </div>
-
-                  {verifyResult.uses !== undefined && verifyResult.maxUses !== undefined && (
-                    <span className="text-xs font-mono font-bold">
-                      Seats: {verifyResult.uses} / {verifyResult.maxUses}
-                    </span>
-                  )}
-                </div>
-
-                {/* API JSON Payload preview */}
-                <div>
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase mb-1">
-                    API Response Payload (Gumroad Format):
-                  </p>
-                  <pre className="bg-black text-emerald-400 p-3 brutal-border text-xs font-mono overflow-x-auto">
-                    {JSON.stringify(verifyResult, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Anti-Piracy PDF Stamping & DRM Card */}
-        <div className="brutal-card mb-6 border-2 border-indigo-500/30">
-          <div className="px-6 py-4 border-b-2 border-border flex items-center justify-between bg-indigo-950/10">
-            <div className="flex items-center gap-3">
-              <ShieldCheck size={20} className="text-indigo-500" />
-              <div>
-                <h2 className="font-heading font-bold text-lg">Anti-Piracy PDF Stamping (DRM)</h2>
-                <p className="text-xs text-muted-foreground">
-                  Dynamic server-side document watermarking powered by <code className="font-mono">pdf-lib</code>
-                </p>
-              </div>
-            </div>
-            <span className="text-xs bg-indigo-500/10 text-indigo-500 px-2 py-0.5 brutal-border font-bold">
-              Active Protection
-            </span>
-          </div>
-          <div className="p-6">
-            <p className="text-sm text-foreground/90 mb-4 leading-relaxed">
-              To prevent illegal redistribution and content leaks, digital PDF deliverables on DigiStore are dynamically stamped on the fly during download with the verified buyer&apos;s email, order number, and timestamp.
-            </p>
-
-            <div className="bg-muted/50 p-3 brutal-border mb-4 font-mono text-xs text-muted-foreground">
-              <span className="text-foreground font-bold">Watermark stamp: </span>
-              🔒 Licensed to: {order?.customerEmail || "buyer@student.edu"} • Order #{order?.id.slice(0, 8) || "ORD-DEMO"} • DigiStore DRM Protected
-            </div>
-
-            <a
-              href={`${API_BASE}/api/drm/demo-stamp?orderId=${encodeURIComponent(order?.id || "ORD-FINAL-PROTOTYPE")}&email=${encodeURIComponent(order?.customerEmail || "evaluator@university.edu")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="brutal-btn bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold inline-flex items-center gap-2 py-2.5 px-4"
-            >
-              <Download size={14} />
-              Download Live Stamped PDF Demo
-            </a>
-          </div>
-        </div>
 
         {/* No files state */}
         {!loading && !downloadInfo && order && (

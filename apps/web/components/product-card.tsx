@@ -38,7 +38,7 @@ export default function ProductCard({ product, matchScore, matchReason }: Produc
 
   const displayPrice = product.isPayWhatYouWant
     ? "Pay what you want"
-    : formatPrice(product.priceCents, product.currency || "USD");
+    : formatPrice(product.priceCents, product.currency || "INR");
 
   const ratingAvg = product.ratingAvg ?? 0;
   const salesCount = product.salesCount ?? 0;

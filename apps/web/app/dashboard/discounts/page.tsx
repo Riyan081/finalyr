@@ -156,12 +156,12 @@ export default function DiscountsPage() {
                   className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none"
                 >
                   <option value="percentage">Percentage (%)</option>
-                  <option value="fixed">Fixed Amount ($)</option>
+                  <option value="fixed">Fixed Amount (₹)</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  Value * {discountType === "percentage" ? "(0-100%)" : "($)"}
+                  Value * {discountType === "percentage" ? "(0-100%)" : "(₹)"}
                 </label>
                 <input
                   type="number"
@@ -270,7 +270,7 @@ export default function DiscountsPage() {
                   <td className="px-4 py-3 font-semibold">
                     {dc.discountType === "percentage"
                       ? `${dc.discountValue}% off`
-                      : `$${(dc.discountValue / 100).toFixed(2)} off`}
+                      : `₹${((dc.discountValue || 0) / 100).toLocaleString("en-IN")} off`}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {dc.currentUses}{dc.maxUses ? `/${dc.maxUses}` : ""}

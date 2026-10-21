@@ -1,4 +1,5 @@
 import prisma from "@repo/db/client";
+import { getSearchVariations } from "../utils/search-query.js";
 
 export const adminService = {
   /**
@@ -204,13 +205,16 @@ export const adminService = {
 
     if (options?.search) {
       const q = options.search.trim().toLowerCase();
-      where.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { slug: { contains: q, mode: "insensitive" } },
-        { category: { contains: q, mode: "insensitive" } },
-        { creator: { name: { contains: q, mode: "insensitive" } } },
-        { creator: { username: { contains: q, mode: "insensitive" } } },
-      ];
+      const variations = getSearchVariations(q);
+      const orClauses: any[] = [];
+      for (const v of variations) {
+        orClauses.push({ name: { contains: v, mode: "insensitive" } });
+        orClauses.push({ slug: { contains: v, mode: "insensitive" } });
+        orClauses.push({ category: { contains: v, mode: "insensitive" } });
+      }
+      orClauses.push({ creator: { name: { contains: q, mode: "insensitive" } } });
+      orClauses.push({ creator: { username: { contains: q, mode: "insensitive" } } });
+      where.OR = orClauses;
     }
 
     const products = await prisma.product.findMany({

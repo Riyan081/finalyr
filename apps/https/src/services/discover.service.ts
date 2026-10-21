@@ -1,4 +1,5 @@
 import prisma from "@repo/db/client";
+import { buildProductSearchFilter } from "../utils/search-query.js";
 
 /**
  * Discover / marketplace service.
@@ -35,11 +36,10 @@ export const discoverService = {
     };
 
     if (q) {
-      where.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { summary: { contains: q, mode: "insensitive" } },
-        { tags: { has: q.toLowerCase() } },
-      ];
+      const searchFilter = buildProductSearchFilter(q);
+      if (searchFilter.OR) {
+        where.OR = searchFilter.OR;
+      }
     }
 
     if (category) {

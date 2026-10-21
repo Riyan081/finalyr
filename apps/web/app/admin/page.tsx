@@ -10,7 +10,7 @@ import {
   Package,
   ShoppingCart,
   Wallet,
-  DollarSign,
+  IndianRupee,
   Server,
   ExternalLink,
   Eye,
@@ -217,7 +217,7 @@ export default function AdminDashboardPage() {
     { key: "users", label: "Users & Creators", icon: Users, count: users?.length },
     { key: "products", label: "Catalog & Moderation", icon: Package, count: products?.length },
     { key: "orders", label: "Orders & Refunds", icon: ShoppingCart, count: orders?.length },
-    { key: "payouts", label: "Creator Payouts", icon: DollarSign, count: payouts?.length },
+    { key: "payouts", label: "Creator Payouts", icon: IndianRupee, count: payouts?.length },
     { key: "system", label: "System Health", icon: Server },
   ];
 
@@ -301,7 +301,7 @@ export default function AdminDashboardPage() {
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Platform GMV
                 </span>
-                <DollarSign size={18} className="text-emerald-700 dark:text-emerald-400" />
+                <IndianRupee size={18} className="text-emerald-700 dark:text-emerald-400" />
               </div>
               <div className="font-heading font-black text-3xl">
                 {statsLoading
@@ -1291,7 +1291,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="flex justify-between border-b border-border pb-1.5">
                   <span className="text-muted-foreground">Min. Payout Balance:</span>
-                  <span className="font-bold">$10.00 USD</span>
+                  <span className="font-bold">₹1,000 INR</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Refund Policy Window:</span>

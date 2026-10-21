@@ -13,6 +13,7 @@ import {
   type ApiProduct, type ProductFile, type ProductVariant, type GenerateCopyResponse,
 } from "@/lib/api";
 import CreatorAIStudioModal from "@/components/creator-ai-studio-modal";
+import SoftwareLicenseSnippets from "@/components/software-license-snippets";
 import { toast } from "sonner";
 
 const PRODUCT_TYPES = [
@@ -49,11 +50,13 @@ export default function EditProductPage() {
   const [tagInput, setTagInput] = useState("");
   const [systemRequirements, setSystemRequirements] = useState("");
   const [priceStr, setPriceStr] = useState("");
-  const [currency, setCurrency] = useState("usd");
+  const [currency, setCurrency] = useState("inr");
   const [isPayWhatYouWant, setIsPayWhatYouWant] = useState(false);
   const [minPriceStr, setMinPriceStr] = useState("0");
   const [suggestedPriceStr, setSuggestedPriceStr] = useState("");
   const [isListedOnDiscover, setIsListedOnDiscover] = useState(true);
+  const [watermarkPdf, setWatermarkPdf] = useState(true);
+  const [hasLicenseKeys, setHasLicenseKeys] = useState(false);
   const [maxPurchaseCount, setMaxPurchaseCount] = useState("");
   const [callToAction, setCallToAction] = useState("I want this!");
   const [status, setStatus] = useState<"draft" | "published" | "archived">("draft");
@@ -96,11 +99,13 @@ export default function EditProductPage() {
         setTags(p.tags ?? []);
         setSystemRequirements(p.systemRequirements ?? "");
         setPriceStr(p.isPayWhatYouWant ? "" : String(p.priceCents / 100));
-        setCurrency(p.currency ?? "usd");
+        setCurrency(p.currency ?? "inr");
         setIsPayWhatYouWant(p.isPayWhatYouWant);
         setMinPriceStr(String(p.minPriceCents / 100));
         setSuggestedPriceStr(p.suggestedPriceCents ? String(p.suggestedPriceCents / 100) : "");
         setIsListedOnDiscover(p.isListedOnDiscover);
+        setWatermarkPdf(p.watermarkPdf !== false);
+        setHasLicenseKeys(p.hasLicenseKeys === true || (p.hasLicenseKeys === undefined && p.category === "software"));
         setMaxPurchaseCount(p.maxPurchaseCount ? String(p.maxPurchaseCount) : "");
         setCallToAction(p.callToAction);
         setStatus(p.status);
@@ -143,6 +148,8 @@ export default function EditProductPage() {
         tags,
         systemRequirements: category === "software" ? systemRequirements.trim() || null : null,
         isListedOnDiscover,
+        watermarkPdf,
+        hasLicenseKeys,
         maxPurchaseCount: maxPurchaseCount ? parseInt(maxPurchaseCount, 10) : null,
         callToAction,
       });
@@ -322,24 +329,54 @@ export default function EditProductPage() {
                 </div>
               </div>
 
-              {/* System Requirements - shown only for software category */}
+              {/* System Requirements & Licensing - shown only for software category */}
               {category === "software" && (
-                <div>
-                  <label className="block text-sm font-bold mb-2">
-                    System Requirements{" "}
-                    <span className="text-destructive font-normal">*</span>
-                  </label>
-                  <textarea
-                    value={systemRequirements}
-                    onChange={(e) => setSystemRequirements(e.target.value)}
-                    placeholder={"Specify the PC/device requirements for your software.\n\nExample:\n- Windows 10 or later / macOS 12+\n- 8 GB RAM minimum\n- 500 MB free disk space\n- DirectX 11 compatible GPU"}
-                    rows={5}
-                    maxLength={5000}
-                    className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {systemRequirements.length}/5000 - Required before publishing
-                  </p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold mb-2">
+                      System Requirements{" "}
+                      <span className="text-destructive font-normal">*</span>
+                    </label>
+                    <textarea
+                      value={systemRequirements}
+                      onChange={(e) => setSystemRequirements(e.target.value)}
+                      placeholder={"Specify the PC/device requirements for your software.\n\nExample:\n- Windows 10 or later / macOS 12+\n- 8 GB RAM minimum\n- 500 MB free disk space\n- DirectX 11 compatible GPU"}
+                      rows={4}
+                      maxLength={5000}
+                      className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {systemRequirements.length}/5000 - Required before publishing
+                    </p>
+                  </div>
+
+                  {/* Gumroad-style License Key Toggle */}
+                  <div className="p-4 bg-muted/40 brutal-border space-y-2">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={hasLicenseKeys}
+                        onChange={(e) => setHasLicenseKeys(e.target.checked)}
+                        className="w-4 h-4 accent-primary mt-0.5"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold">
+                            Generate a unique license key per sale
+                          </span>
+                          <span className="text-[10px] font-mono uppercase bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-bold">
+                            Gumroad v2
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Each customer receives a cryptographic serial key (<code>DIGI-XXXX-XXXX-XXXX</code>) to activate and license your software on up to 5 devices.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Multi-language Integration Snippets */}
+                  {hasLicenseKeys && <SoftwareLicenseSnippets />}
                 </div>
               )}
 
@@ -383,8 +420,8 @@ export default function EditProductPage() {
               </label>
               {!isPayWhatYouWant ? (
                 <div>
-                  <label className="block text-sm font-bold mb-2">Price (USD)</label>
-                  <input type="number" value={priceStr} onChange={(e) => setPriceStr(e.target.value)} placeholder="0 for free" min="0" step="0.01"
+                  <label className="block text-sm font-bold mb-2">Price (₹)</label>
+                  <input type="number" value={priceStr} onChange={(e) => setPriceStr(e.target.value)} placeholder="0 for free" min="0" step="1"
                     className="w-full sm:w-48 px-4 py-3 brutal-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               ) : (
@@ -416,7 +453,7 @@ export default function EditProductPage() {
                       {v.description && <p className="text-xs text-muted-foreground">{v.description}</p>}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-sm">${(v.priceCents / 100).toFixed(2)}</span>
+                      <span className="font-bold text-sm">₹{((v.priceCents || 0) / 100).toLocaleString("en-IN")}</span>
                       <button type="button" onClick={() => handleDeleteVariant(v.id)} className="p-1.5 text-muted-foreground hover:text-destructive brutal-border"><Trash2 size={12} /></button>
                     </div>
                   </div>
@@ -497,6 +534,54 @@ export default function EditProductPage() {
                 <input type="checkbox" checked={isListedOnDiscover} onChange={(e) => setIsListedOnDiscover(e.target.checked)} className="w-4 h-4 accent-primary" />
                 <span className="text-sm font-semibold">List on Discover page</span>
               </label>
+              <div className="p-3 bg-muted/40 brutal-border space-y-1.5">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={watermarkPdf}
+                    onChange={(e) => setWatermarkPdf(e.target.checked)}
+                    className="w-4 h-4 accent-primary mt-0.5"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold">
+                        Automatically watermark Creator Name on PDF files
+                      </span>
+                      <span className="text-[9px] font-mono uppercase bg-primary text-primary-foreground px-1 py-0.5 rounded font-bold">
+                        PDF DRM
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Stamps creator name & copyright notice on PDF downloads.
+                    </p>
+                  </div>
+                </label>
+              </div>
+              {category !== "software" && (
+                <div className="p-3 bg-muted/40 brutal-border space-y-1.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasLicenseKeys}
+                      onChange={(e) => setHasLicenseKeys(e.target.checked)}
+                      className="w-4 h-4 accent-primary mt-0.5"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold">
+                          Generate a unique license key per sale
+                        </span>
+                        <span className="text-[9px] font-mono uppercase bg-primary text-primary-foreground px-1 py-0.5 rounded font-bold">
+                          License Keys
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Generates a serial key (<code>DIGI-XXXX-XXXX-XXXX</code>) with each order.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-bold mb-2">Max Purchase Count</label>
                 <input type="number" value={maxPurchaseCount} onChange={(e) => setMaxPurchaseCount(e.target.value)} placeholder="Unlimited" min="1"

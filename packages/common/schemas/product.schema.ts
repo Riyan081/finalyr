@@ -18,6 +18,7 @@ export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 
 export const PRODUCT_CATEGORIES = [
   "3d",
+  "animation",
   "audio",
   "business",
   "comics",
@@ -26,9 +27,13 @@ export const PRODUCT_CATEGORIES = [
   "education",
   "fiction",
   "film",
+  "fitness",
+  "gaming",
   "music",
   "photography",
+  "self-improvement",
   "software",
+  "writing",
   "other",
 ] as const;
 export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
@@ -89,6 +94,8 @@ export const createProductSchema = z.object({
     .string()
     .max(100)
     .default("I want this!"),
+  watermarkPdf: z.boolean().default(true).optional(),
+  hasLicenseKeys: z.boolean().default(false).optional(),
 
   // Categorization
   category: z.enum(PRODUCT_CATEGORIES).optional().nullable(),

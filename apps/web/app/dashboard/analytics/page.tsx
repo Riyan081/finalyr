@@ -2,7 +2,7 @@
 
 import {
   TrendingUp,
-  DollarSign,
+  IndianRupee,
   ShoppingCart,
   Users,
   Loader2,
@@ -34,8 +34,8 @@ export default function AnalyticsPage() {
   const stats = [
     {
       label: "Total Revenue",
-      value: overview ? formatPrice(overview.totalRevenueCents, "usd") : "—",
-      icon: DollarSign,
+      value: overview ? formatPrice(overview.totalRevenueCents, "inr") : "—",
+      icon: IndianRupee,
       color: "bg-digi-pink",
     },
     {
@@ -121,11 +121,11 @@ export default function AnalyticsPage() {
                 <div
                   key={d.date}
                   className="flex-1 flex flex-col items-center gap-1"
-                  title={`${label}: ${formatPrice(d.revenueCents, "usd")}`}
+                  title={`${label}: ${formatPrice(d.revenueCents, "inr")}`}
                 >
                   {d.revenueCents > 0 && (
                     <span className="text-[10px] font-bold text-muted-foreground">
-                      ${(d.revenueCents / 100).toFixed(0)}
+                      ₹{Math.round(d.revenueCents / 100).toLocaleString("en-IN")}
                     </span>
                   )}
                   <div
@@ -169,7 +169,7 @@ export default function AnalyticsPage() {
                     <p className="font-semibold text-sm truncate">{p.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {p.salesCount} sales •{" "}
-                      {formatPrice(p.revenueCents, "usd")} revenue
+                      {formatPrice(p.revenueCents, "inr")} revenue
                     </p>
                   </div>
                   <span
@@ -212,7 +212,7 @@ export default function AnalyticsPage() {
                       {sale.product.name}
                     </p>
                     <span className="text-sm font-bold shrink-0 text-digi-mint">
-                      +{formatPrice(sale.amountCents, "usd")}
+                      +{formatPrice(sale.amountCents, "inr")}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">

@@ -1,5 +1,6 @@
 import prisma from "@repo/db/client";
 import type { GenerateCopyInput, GeneratedCopyOutput } from "@repo/common";
+import { expandTokensForSemanticSearch } from "../utils/search-query.js";
 
 // ─── English Stopwords for NLP Tokenization ─────────────────────────────────
 const STOPWORDS = new Set([
@@ -50,6 +51,11 @@ export interface SemanticSearchResult {
   matchReason: string;
 }
 
+export interface SemanticSearchOutput {
+  results: SemanticSearchResult[];
+  didYouMean: string | null;
+}
+
 export interface RecommendationResult {
   id: string;
   name: string;
@@ -71,11 +77,13 @@ export interface RecommendationResult {
 export class AIService {
   // ─── Helper: Tokenize & Compute Weighted Term Frequency ───────────────────
   private tokenize(text: string): string[] {
-    return text
+    const rawTokens = text
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, " ")
       .split(/\s+/)
       .filter((w) => w.length > 1 && !STOPWORDS.has(w));
+
+    return expandTokensForSemanticSearch(rawTokens);
   }
 
   private buildTermVector(
@@ -126,9 +134,9 @@ export class AIService {
   }
 
   // ─── 1. AI Semantic Search Engine ─────────────────────────────────────────
-  async semanticSearch(query: string, limit = 12, categoryFilter?: string): Promise<SemanticSearchResult[]> {
+  async semanticSearch(query: string, limit = 12, categoryFilter?: string): Promise<SemanticSearchOutput> {
     if (!query || query.trim().length === 0) {
-      return [];
+      return { results: [], didYouMean: null };
     }
 
     // 1. Fetch published candidates
@@ -148,7 +156,7 @@ export class AIService {
       },
     });
 
-    if (products.length === 0) return [];
+    if (products.length === 0) return { results: [], didYouMean: null };
 
     // 2. Build Query Vector with synonyms
     const queryVector = this.buildTermVector(
@@ -198,10 +206,122 @@ export class AIService {
     });
 
     // 4. Filter threshold and sort descending by score
-    return scoredProducts
+    const results = scoredProducts
       .filter((p) => p.matchScore > 10)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, limit);
+
+    let didYouMean: string | null = null;
+    if (results.length === 0) {
+      didYouMean = this.computeDidYouMean(query, products);
+    }
+
+    return {
+      results,
+      didYouMean,
+    };
+  }
+
+  /**
+   * Compute "Did you mean" typo correction suggestion based on published catalog vocabulary
+   */
+  private computeDidYouMean(query: string, products: any[]): string | null {
+    if (!products || products.length === 0) return null;
+
+    const vocab = new Map<string, number>();
+    const addWord = (w?: string | null) => {
+      if (!w) return;
+      const clean = w.toLowerCase().replace(/[^a-z0-9_-]/g, "");
+      if (clean.length < 3) return;
+      vocab.set(clean, (vocab.get(clean) || 0) + 1);
+    };
+
+    for (const p of products) {
+      if (p.name) p.name.split(/\s+/).forEach(addWord);
+      if (Array.isArray(p.tags)) p.tags.forEach(addWord);
+      if (p.category) addWord(p.category);
+      if (p.summary) p.summary.split(/\s+/).forEach(addWord);
+    }
+
+    const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return null;
+
+    let changed = false;
+    const suggestedTokens = tokens.map((token) => {
+      const cleanToken = token.replace(/[^a-z0-9_-]/g, "");
+      if (!cleanToken) return token;
+      // If token is already present in catalog vocabulary, keep it
+      if (vocab.has(cleanToken)) return cleanToken;
+
+      let bestWord: string | null = null;
+      let bestDist = Infinity;
+      let bestScore = 0;
+      let bestFreq = 0;
+
+      for (const [word, freq] of vocab.entries()) {
+        const maxLen = Math.max(cleanToken.length, word.length);
+        const lenDiff = Math.abs(cleanToken.length - word.length);
+        if (lenDiff > 3) continue;
+
+        const dist = this.damerauLevenshtein(cleanToken, word);
+        const maxAllowedDist = cleanToken.length <= 4 ? 1 : cleanToken.length <= 7 ? 2 : 3;
+        if (dist > maxAllowedDist) continue;
+
+        const score = 1 - dist / maxLen;
+        const prefixBonus = word[0] === cleanToken[0] ? 0.05 : 0;
+        const finalScore = score + prefixBonus;
+
+        if (
+          dist < bestDist ||
+          (dist === bestDist && (finalScore > bestScore || (finalScore === bestScore && freq > bestFreq)))
+        ) {
+          bestDist = dist;
+          bestScore = finalScore;
+          bestWord = word;
+          bestFreq = freq;
+        }
+      }
+
+      if (bestWord && bestDist <= 2 && bestScore >= 0.6) {
+        changed = true;
+        return bestWord;
+      }
+      return token;
+    });
+
+    if (!changed) return null;
+    const suggestion = suggestedTokens.join(" ");
+    return suggestion.toLowerCase() !== query.toLowerCase() ? suggestion : null;
+  }
+
+  private damerauLevenshtein(a: string, b: string): number {
+    const m = a.length;
+    const n = b.length;
+    const width = n + 1;
+    const d = new Int32Array((m + 1) * width);
+
+    for (let i = 0; i <= m; i++) d[i * width] = i;
+    for (let j = 0; j <= n; j++) d[j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        const del = (d[(i - 1) * width + j] ?? 0) + 1;
+        const ins = (d[i * width + (j - 1)] ?? 0) + 1;
+        const sub = (d[(i - 1) * width + (j - 1)] ?? 0) + cost;
+
+        let val = Math.min(del, ins, sub);
+
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+          const trans = (d[(i - 2) * width + (j - 2)] ?? 0) + 1;
+          val = Math.min(val, trans);
+        }
+
+        d[i * width + j] = val;
+      }
+    }
+
+    return d[m * width + n] ?? 0;
   }
 
   // ─── 2. Hybrid Product Recommendation Engine ──────────────────────────────

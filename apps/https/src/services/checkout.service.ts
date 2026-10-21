@@ -124,8 +124,8 @@ export const checkoutService = {
     const provider = params.provider || "polar";
 
     const isRazorpay = provider === "razorpay";
-    const currency = isRazorpay ? "inr" : (product.currency || "usd");
-    const inrRate = product.currency?.toLowerCase() === "inr" ? 1 : 85;
+    const currency = isRazorpay ? "inr" : (product.currency || "inr");
+    const inrRate = product.currency?.toLowerCase() === "usd" ? 85 : 1;
     const finalAmountCents = isRazorpay
       ? Math.round(priceCents * inrRate)
       : priceCents;
@@ -249,7 +249,7 @@ export const checkoutService = {
       customerEmail: userEmail,
       customerName: userName,
       amountCents: priceCents,
-      currency: "usd",
+      currency: product.currency || "inr",
       discountCodeId,
       platformFeeCents,
       creatorRevenueCents,
@@ -309,7 +309,7 @@ export const checkoutService = {
         customerEmail: order.customer?.email ?? meta.userEmail ?? "",
         customerName: order.customer?.name ?? undefined,
         amountCents,
-        currency: order.currency ?? "usd",
+        currency: order.currency ?? "inr",
         discountCodeId: meta.discountCodeId || undefined,
         platformFeeCents,
         creatorRevenueCents: amountCents - platformFeeCents,
@@ -344,7 +344,7 @@ export const checkoutService = {
     const { product, priceCents, variantName, discountCodeId, platformFeeCents, creatorRevenueCents } = resolved;
 
     // Convert to INR paise if product is in USD (1 USD = 85 INR) or if in INR
-    const inrRate = product.currency.toLowerCase() === "inr" ? 1 : 85;
+    const inrRate = product.currency.toLowerCase() === "usd" ? 85 : 1;
     const amountPaise = Math.round(priceCents * inrRate);
 
     // If real Razorpay key is configured

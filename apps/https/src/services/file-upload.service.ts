@@ -1,6 +1,6 @@
 import prisma from "@repo/db/client";
 import {
-  generateUploadUrl,
+  uploadBuffer,
   generateFileKey,
   validateFileUpload,
   deleteFile,
@@ -50,7 +50,7 @@ export const fileUploadService = {
 
     // Validate file using storage package's validator
     try {
-      validateFileUpload(file.mimetype, file.size);
+      validateFileUpload(file.mimetype, file.size, file.originalname);
     } catch (err: any) {
       throw new BadRequestError(err.message);
     }
@@ -61,31 +61,9 @@ export const fileUploadService = {
       .replace(/\s+/g, "_")
       .substring(0, 200);
 
-    // Generate presigned upload URL and file key using storage package
-    // Note: generateUploadUrl(productId, fileName, fileType, fileSizeBytes)
-    await ensureBucketExists();
-    const { uploadUrl, fileKey } = await generateUploadUrl(
-      productId,
-      safeName,
-      file.mimetype,
-      file.size
-    );
-
-    // Upload file buffer to MinIO via presigned URL
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      body: new Uint8Array(file.buffer),
-      headers: {
-        "Content-Type": file.mimetype,
-        "Content-Length": String(file.size),
-      },
-    });
-
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      console.error(`[FileUpload] S3 upload failed with status ${uploadRes.status}:`, errText);
-      throw new Error(`Storage upload failed (${uploadRes.status}): ${errText}`);
-    }
+    // Generate file key and upload directly to MinIO
+    const fileKey = generateFileKey(productId, safeName);
+    await uploadBuffer(fileKey, file.buffer, file.mimetype || "application/octet-stream");
 
     // Get current max sort order
     const lastFile = await prisma.productFile.findFirst({
@@ -190,39 +168,9 @@ export const fileUploadService = {
 
     const ext = file.mimetype === "image/jpeg" ? "jpg" : (file.mimetype.split("/")[1] || "png");
     const thumbnailFileName = `thumbnail.${ext}`;
+    const fileKey = generateFileKey(productId, thumbnailFileName);
 
-    await ensureBucketExists();
-
-    // Generate presigned URL for thumbnail
-    let uploadUrl: string;
-    let fileKey: string;
-    try {
-      const generated = await generateUploadUrl(
-        productId,
-        thumbnailFileName,
-        file.mimetype,
-        file.size
-      );
-      uploadUrl = generated.uploadUrl;
-      fileKey = generated.fileKey;
-    } catch (err: any) {
-      throw new BadRequestError(err.message);
-    }
-
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      body: new Uint8Array(file.buffer),
-      headers: {
-        "Content-Type": file.mimetype,
-        "Content-Length": String(file.size),
-      },
-    });
-
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      console.error(`[FileUpload] S3 thumbnail upload failed with status ${uploadRes.status}:`, errText);
-      throw new Error(`Storage upload failed (${uploadRes.status}): ${errText}`);
-    }
+    await uploadBuffer(fileKey, file.buffer, file.mimetype);
 
     // Build the public URL for the thumbnail
     const s3Endpoint = process.env.S3_ENDPOINT || "http://localhost:9000";

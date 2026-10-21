@@ -39,12 +39,6 @@ export default function DashboardLayout({
     const user = session.user as any;
     const isCreator = user.role === "creator" || Boolean(user.username);
 
-    // If user is not a creator and visits root /dashboard, send them to their purchases library
-    if (!isCreator && pathname === "/dashboard") {
-      router.push("/dashboard/purchases");
-      return;
-    }
-
     // If trying to access creator-only tools without being a creator, redirect to setup
     const isCreatorOnlyRoute = CREATOR_ONLY_ROUTES.some(
       (route) => pathname === route || pathname.startsWith(`${route}/`)

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Search, Loader2, Sparkles, BrainCircuit } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { Search, Loader2 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import ProductCard from "@/components/product-card";
@@ -28,17 +28,15 @@ export default function DiscoverPage() {
   const [sortBy, setSortBy] = useState<SortOption>("popular");
   const [page, setPage] = useState(1);
 
-  // AI Semantic Search state
-  const [isSemanticMode, setIsSemanticMode] = useState(false);
+  // Semantic search state
   const [semanticResults, setSemanticResults] = useState<SemanticSearchResultItem[]>([]);
   const [semanticLoading, setSemanticLoading] = useState(false);
-  const [semanticSearched, setSemanticSearched] = useState(false);
   const [semanticError, setSemanticError] = useState<string | null>(null);
+  const [didYouMean, setDidYouMean] = useState<string | null>(null);
 
   const { data: featuredCreators, loading: creatorsLoading } = useFeaturedCreators(8);
 
   const { products, pagination, loading, error } = useDiscoverProducts({
-    q: search || undefined,
     category: selectedCategory || undefined,
     sort: sortBy,
     page,
@@ -49,25 +47,26 @@ export default function DiscoverPage() {
     async (query: string, category?: string | null) => {
       if (!query.trim()) {
         setSemanticResults([]);
-        setSemanticSearched(false);
+        setDidYouMean(null);
         return;
       }
       setSemanticLoading(true);
       setSemanticError(null);
+      setDidYouMean(null);
       try {
-        const results = await aiApi.semanticSearch(
+        const res = await aiApi.semanticSearch(
           query.trim(),
           24,
           category || undefined
         );
-        setSemanticResults(results);
-        setSemanticSearched(true);
+        setSemanticResults(res.items);
+        setDidYouMean(res.didYouMean || null);
       } catch (err: unknown) {
         console.error("Semantic search failed:", err);
         setSemanticError(
           err instanceof Error
             ? err.message
-            : "Semantic search query failed. Try standard search."
+            : "Search query failed. Please try again."
         );
       } finally {
         setSemanticLoading(false);
@@ -96,29 +95,41 @@ export default function DiscoverPage() {
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (isSemanticMode) {
-        performSemanticSearch(searchInput, selectedCategory);
+      const q = searchInput.trim();
+      setSearch(q);
+      setPage(1);
+      setDidYouMean(null);
+      if (q) {
+        performSemanticSearch(q, selectedCategory);
       } else {
-        setSearch(searchInput);
-        setPage(1);
+        setSemanticResults([]);
       }
     },
-    [isSemanticMode, searchInput, selectedCategory, performSemanticSearch]
+    [searchInput, selectedCategory, performSemanticSearch]
   );
 
-  const toggleSemanticMode = () => {
-    const nextMode = !isSemanticMode;
-    setIsSemanticMode(nextMode);
-    if (nextMode && searchInput.trim()) {
-      performSemanticSearch(searchInput, selectedCategory);
-    }
+  const handleClearSearch = () => {
+    setSearch("");
+    setSearchInput("");
+    setSemanticResults([]);
+    setSemanticError(null);
+    setDidYouMean(null);
+    setPage(1);
+  };
+
+  const handleApplySuggestion = (suggestion: string) => {
+    setSearchInput(suggestion);
+    setSearch(suggestion);
+    setPage(1);
+    setDidYouMean(null);
+    performSemanticSearch(suggestion, selectedCategory);
   };
 
   const handleCategorySelect = (cat: string | null) => {
     setSelectedCategory(cat);
     setPage(1);
-    if (isSemanticMode && searchInput.trim()) {
-      performSemanticSearch(searchInput, cat);
+    if (search.trim()) {
+      performSemanticSearch(search.trim(), cat);
     }
   };
 
@@ -129,9 +140,26 @@ export default function DiscoverPage() {
 
   const handleQuickSuggestion = (suggestion: string) => {
     setSearchInput(suggestion);
-    setIsSemanticMode(true);
+    setSearch(suggestion);
+    setPage(1);
+    setDidYouMean(null);
     performSemanticSearch(suggestion, selectedCategory);
   };
+
+  // Sort semantic results client-side according to active sort option
+  const sortedSemanticResults = useMemo(() => {
+    if (!semanticResults.length) return [];
+    const items = [...semanticResults];
+    switch (sortBy) {
+      case "price_asc":
+        return items.sort((a, b) => a.priceCents - b.priceCents);
+      case "price_desc":
+        return items.sort((a, b) => b.priceCents - a.priceCents);
+      case "popular":
+      default:
+        return items.sort((a, b) => b.matchScore - a.matchScore);
+    }
+  }, [semanticResults, sortBy]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -140,26 +168,9 @@ export default function DiscoverPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-            <h1 className="font-heading font-black text-4xl md:text-5xl">
-              Discover
-            </h1>
-            <button
-              type="button"
-              onClick={toggleSemanticMode}
-              className={`brutal-btn px-4 py-2.5 text-xs font-black flex items-center gap-2 self-start md:self-auto transition-all ${
-                isSemanticMode
-                  ? "bg-digi-mint text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-                  : "bg-card hover:bg-muted text-foreground"
-              }`}
-            >
-              <Sparkles
-                size={14}
-                className={isSemanticMode ? "text-black fill-black" : "text-primary"}
-              />
-              <span>{isSemanticMode ? "✨ AI Semantic Search: ON" : "✨ Try AI Semantic Search"}</span>
-            </button>
-          </div>
+          <h1 className="font-heading font-black text-4xl md:text-5xl mb-2">
+            Discover
+          </h1>
           <p className="text-muted-foreground text-lg">
             Find the best digital products from creators worldwide.
           </p>
@@ -224,79 +235,58 @@ export default function DiscoverPage() {
               />
               <input
                 type="text"
-                placeholder={
-                  isSemanticMode
-                    ? "Ask AI in plain English (e.g., 'minimalist student notion template', 'python scraping scripts')..."
-                    : "Search products..."
-                }
+                placeholder="Search products in plain English (e.g., 'minimalist student notion template', 'python scripts')..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className={`w-full pl-12 pr-4 py-3 brutal-border bg-card font-body text-sm focus:outline-none focus:ring-2 ${
-                  isSemanticMode
-                    ? "border-primary focus:ring-digi-mint bg-digi-mint/5"
-                    : "focus:ring-primary"
-                }`}
+                className="w-full pl-12 pr-4 py-3 brutal-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <button
               type="submit"
-              disabled={isSemanticMode && semanticLoading}
-              className={`brutal-btn text-sm font-bold px-6 py-3 flex items-center justify-center gap-2 ${
-                isSemanticMode
-                  ? "bg-digi-mint text-black"
-                  : "bg-primary text-primary-foreground"
-              }`}
+              disabled={semanticLoading}
+              className="brutal-btn text-sm font-bold px-6 py-3 flex items-center justify-center gap-2 bg-primary text-primary-foreground"
             >
-              {isSemanticMode ? (
+              {semanticLoading ? (
                 <>
-                  {semanticLoading ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Sparkles size={16} />
-                  )}
-                  <span>AI Search</span>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Searching...</span>
                 </>
               ) : (
-                <span>Search</span>
+                <>
+                  <Search size={16} />
+                  <span>Search</span>
+                </>
               )}
             </button>
-            {!isSemanticMode && (
-              <select
-                value={sortBy}
-                onChange={(e) => handleSortChange(e.target.value as SortOption)}
-                className="brutal-border bg-card px-4 py-3 font-body text-sm focus:outline-none cursor-pointer"
-              >
-                <option value="popular">Most Popular</option>
-                <option value="newest">Newest</option>
-                <option value="rating">Top Rated</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-              </select>
-            )}
+            <select
+              value={sortBy}
+              onChange={(e) => handleSortChange(e.target.value as SortOption)}
+              className="brutal-border bg-card px-4 py-3 font-body text-sm focus:outline-none cursor-pointer"
+            >
+              <option value="popular">Most Popular</option>
+              <option value="newest">Newest</option>
+              <option value="rating">Top Rated</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+            </select>
           </form>
 
-          {/* Semantic Info & Quick Query Prompts */}
-          {isSemanticMode && (
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs font-mono font-bold text-black bg-digi-mint px-2.5 py-1 brutal-border inline-flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <BrainCircuit size={13} />
-                Vector Space TF-IDF + Cosine Similarity Active
-              </span>
-              <span className="text-xs text-muted-foreground font-medium mr-1">
-                Try:
-              </span>
-              {QUICK_SUGGESTIONS.slice(0, 4).map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => handleQuickSuggestion(q)}
-                  className="text-xs font-semibold px-2 py-1 bg-card brutal-border hover:bg-muted transition-colors"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Quick Query Suggestions */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground font-medium mr-1">
+              Try:
+            </span>
+            {QUICK_SUGGESTIONS.slice(0, 4).map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => handleQuickSuggestion(q)}
+                className="text-xs font-semibold px-2 py-1 bg-card brutal-border hover:bg-muted transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -337,121 +327,104 @@ export default function DiscoverPage() {
 
           {/* Product Grid Area */}
           <div className="flex-1">
-            {isSemanticMode ? (
-              /* AI Semantic Search Results */
+            {search.trim() ? (
+              /* Search Results (powered by Semantic Search) */
               semanticLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-digi-mint brutal-border flex items-center justify-center animate-bounce shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-                    <Sparkles size={24} className="text-black" />
-                  </div>
+                  <Loader2 size={32} className="animate-spin text-primary" />
                   <p className="font-heading font-bold text-lg">
-                    Generating Query Embedding Vectors…
-                  </p>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    Computing Cosine Similarity over product titles, categories, and tags
+                    Searching products…
                   </p>
                 </div>
               ) : semanticError ? (
                 <div className="brutal-card p-12 text-center">
                   <p className="font-heading font-bold text-xl mb-2 text-destructive">
-                    Semantic Search Error
+                    Search Error
                   </p>
                   <p className="text-muted-foreground text-sm mb-4">{semanticError}</p>
                   <button
                     type="button"
-                    onClick={() => performSemanticSearch(searchInput, selectedCategory)}
+                    onClick={() => performSemanticSearch(search, selectedCategory)}
                     className="brutal-btn bg-primary text-primary-foreground text-xs font-bold px-4 py-2"
                   >
                     Retry Search
                   </button>
                 </div>
-              ) : semanticSearched ? (
-                semanticResults.length === 0 ? (
-                  <div className="brutal-card p-12 text-center">
-                    <p className="font-heading font-bold text-xl mb-2">
-                      No vector matches found
+              ) : sortedSemanticResults.length === 0 ? (
+                <div className="brutal-card p-10 text-center space-y-5">
+                  <div className="space-y-2">
+                    <p className="font-heading font-black text-2xl">
+                      No products found for &ldquo;<span className="text-destructive font-mono">{search}</span>&rdquo;
                     </p>
-                    <p className="text-muted-foreground text-sm mb-6">
-                      Try searching with broader natural language terms or select another category.
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
-                      {QUICK_SUGGESTIONS.map((q) => (
+                    {didYouMean && (
+                      <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-base">
+                        <span className="text-muted-foreground font-semibold">Did you mean:</span>
                         <button
-                          key={q}
                           type="button"
-                          onClick={() => handleQuickSuggestion(q)}
-                          className="brutal-btn bg-card text-xs font-semibold px-3 py-1.5"
+                          onClick={() => handleApplySuggestion(didYouMean)}
+                          className="font-heading font-black text-primary underline underline-offset-4 hover:text-primary/80 transition-colors text-lg inline-flex items-center gap-1.5"
                         >
-                          {q}
+                          <span>{didYouMean}</span>
+                          <span className="text-xs font-bold bg-digi-mint text-black px-2 py-0.5 rounded border border-black no-underline shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                            Click to search
+                          </span>
                         </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 bg-muted/40 p-3 brutal-border">
-                      <div className="flex items-center gap-2">
-                        <span className="font-heading font-black text-xs uppercase bg-digi-mint text-black px-2 py-0.5 brutal-border shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-                          ✨ AI Match Engine
-                        </span>
-                        <span className="text-xs md:text-sm font-semibold">
-                          Found {semanticResults.length} products ranked by vector similarity
-                        </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSemanticMode(false);
-                          setSemanticSearched(false);
-                          setSemanticResults([]);
-                        }}
-                        className="text-xs font-bold text-muted-foreground underline hover:text-foreground self-start sm:self-auto"
-                      >
-                        Back to Standard View
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                      {semanticResults.map((item) => (
-                        <ProductCard
-                          key={item.id}
-                          product={item}
-                          matchScore={item.matchScore}
-                          matchReason={item.matchReason}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )
-              ) : (
-                /* Semantic Mode Welcome / Prompts */
-                <div className="brutal-card p-8 md:p-12 text-center bg-card">
-                  <div className="w-16 h-16 rounded-2xl bg-digi-mint brutal-border flex items-center justify-center mx-auto mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <BrainCircuit size={32} className="text-black" />
+                    )}
                   </div>
-                  <h3 className="font-heading font-black text-2xl md:text-3xl mb-2">
-                    AI Semantic Product Search
-                  </h3>
-                  <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
-                    Search with concepts and natural intent rather than exact keyword matches.
-                    Our vector similarity engine matches semantics, tags, and product descriptions.
+                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                    {didYouMean
+                      ? `We couldn't find any products matching "${search}", but found products matching "${didYouMean}".`
+                      : "Try checking your spelling, using broader natural language terms, or selecting another category."}
                   </p>
-                  <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
-                    {QUICK_SUGGESTIONS.map((q) => (
+                  <div className="flex flex-wrap justify-center gap-3 pt-2">
+                    {didYouMean && (
                       <button
-                        key={q}
                         type="button"
-                        onClick={() => handleQuickSuggestion(q)}
-                        className="brutal-btn bg-background text-xs py-2 px-3.5 font-bold hover:bg-digi-mint transition-colors"
+                        onClick={() => handleApplySuggestion(didYouMean)}
+                        className="brutal-btn bg-digi-mint text-black text-xs font-bold px-4 py-2.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
                       >
-                        ✨ {q}
+                        Search for &ldquo;{didYouMean}&rdquo;
                       </button>
-                    ))}
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="brutal-btn bg-card text-xs font-semibold px-4 py-2.5"
+                    >
+                      Clear Search
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 bg-muted/40 p-3 brutal-border">
+                    <span className="text-xs md:text-sm font-semibold">
+                      Found {sortedSemanticResults.length} {sortedSemanticResults.length === 1 ? "product" : "products"} for &ldquo;{search}&rdquo;
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="text-xs font-bold text-muted-foreground underline hover:text-foreground self-start sm:self-auto"
+                    >
+                      Clear Search
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                    {sortedSemanticResults.map((item) => (
+                      <ProductCard
+                        key={item.id}
+                        product={item}
+                        matchScore={item.matchScore}
+                        matchReason={item.matchReason}
+                      />
+                    ))}
+                  </div>
+                </>
               )
             ) : (
-              /* Standard Search Results */
+              /* Standard Product Browse */
               loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                   <Loader2 size={32} className="animate-spin text-muted-foreground" />
@@ -470,7 +443,7 @@ export default function DiscoverPage() {
                     No products found
                   </p>
                   <p className="text-muted-foreground">
-                    Try adjusting your search or filters.
+                    Try adjusting your category or filters.
                   </p>
                 </div>
               ) : (

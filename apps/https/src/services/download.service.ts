@@ -121,6 +121,12 @@ export const downloadService = {
         product: {
           include: {
             files: { where: { id: fileId } },
+            creator: {
+              select: {
+                name: true,
+                username: true,
+              },
+            },
           },
         },
       },
@@ -143,7 +149,18 @@ export const downloadService = {
       file.fileName.toLowerCase().endsWith(".pdf");
 
     if (isPdf) {
-      const sampleBytes = await generateStampedSamplePdf(order.customerEmail, order.id);
+      const creatorName =
+        (order.product as any).watermarkPdf !== false
+          ? (order.product as any).creator?.name ||
+            (order.product as any).creator?.username ||
+            "Creator"
+          : undefined;
+
+      const sampleBytes = await generateStampedSamplePdf(
+        order.customerEmail,
+        order.id,
+        creatorName
+      );
       return {
         isPdf: true,
         pdfBytes: sampleBytes,

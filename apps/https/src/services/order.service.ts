@@ -32,7 +32,7 @@ export const orderService = {
   }) {
     const product = await prisma.product.findUnique({
       where: { id: data.productId },
-      select: { id: true, creatorId: true, productType: true },
+      select: { id: true, creatorId: true, productType: true, hasLicenseKeys: true },
     });
     if (!product) throw new NotFoundError("Product");
 
@@ -61,8 +61,8 @@ export const orderService = {
       },
     });
 
-    // Create license key for digital and software products
-    if (product.productType === "digital" || product.productType === "software") {
+    // Create license key if creator enabled license keys for this product
+    if (product.hasLicenseKeys || product.productType === "software") {
       const part = () => crypto.randomBytes(2).toString("hex").toUpperCase();
       const licenseKey = `DIGI-${part()}-${part()}-${part()}`;
 
@@ -177,6 +177,9 @@ export const orderService = {
             },
           },
           variant: { select: { name: true } },
+          licenseKeys: {
+            select: { id: true, licenseKey: true, uses: true, maxUses: true, isDisabled: true },
+          },
         },
       }),
       prisma.order.count({ where: { customerId, status: "completed" } }),

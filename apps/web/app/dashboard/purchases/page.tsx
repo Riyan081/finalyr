@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Download, Loader2, ShoppingBag, Key, Repeat, Crown, XCircle, CheckCircle, ExternalLink } from "lucide-react";
+import { Download, Loader2, ShoppingBag, Key, Repeat, Crown, XCircle, CheckCircle, ExternalLink, Copy } from "lucide-react";
 import { ordersApi, checkoutApi, membershipApi, type OrderItem, type MembershipItem } from "@/lib/api";
 import { formatPrice } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -65,15 +65,17 @@ export default function PurchasesPage() {
         toast.info("No downloadable files for this product.");
         return;
       }
-      // Download all files
-      dl.order.files.forEach((file) => {
+      // Download all files with exact filenames
+      for (const file of dl.order.files) {
         const url = checkoutApi.buildFileDownloadUrl(dl.token, file.id);
         const a = document.createElement("a");
         a.href = url;
-        a.download = file.fileName;
+        a.setAttribute("download", file.fileName);
+        document.body.appendChild(a);
         a.click();
-      });
-      toast.success(`Downloading ${dl.order.files.length} file(s)…`);
+        document.body.removeChild(a);
+      }
+      toast.success(`Downloading ${dl.order.files.length} file(s)...`);
     } catch (e: any) {
       toast.error("Download failed", { description: e.message });
     } finally {
@@ -159,6 +161,32 @@ export default function PurchasesPage() {
                       <span>•</span>
                       <span>{new Date(order.createdAt).toLocaleDateString()}</span>
                     </div>
+
+                    {order.licenseKeys && order.licenseKeys.length > 0 && (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        {order.licenseKeys.map((lk) => (
+                          <div
+                            key={lk.licenseKey}
+                            className="inline-flex items-center gap-1.5 bg-muted px-2.5 py-1 brutal-border text-xs font-mono font-bold"
+                          >
+                            <Key size={12} className="text-primary" />
+                            <span>{lk.licenseKey}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(lk.licenseKey);
+                                toast.success("License key copied to clipboard!");
+                              }}
+                              className="hover:text-primary p-0.5 ml-1"
+                              title="Copy License Key"
+                            >
+                              <Copy size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 

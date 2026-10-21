@@ -45,7 +45,11 @@ export const licenseService = {
    * Public Gumroad v2-compatible license verification endpoint.
    * Called by software apps (desktop, plugins, mobile) on activation.
    */
-  async verifyKey(licenseKey: string, incrementUses: boolean = true) {
+  async verifyKey(
+    licenseKey: string,
+    incrementUses: boolean = true,
+    expectedProductIdOrSlug?: string
+  ) {
     const cleanKey = licenseKey.trim().toUpperCase();
 
     const license = await prisma.licenseKey.findUnique({
@@ -70,6 +74,23 @@ export const licenseService = {
         valid: false,
         message: "Invalid license key: not found in platform registry",
       };
+    }
+
+    // Product scoping check: ensures a key for Product A cannot activate Product B
+    if (expectedProductIdOrSlug) {
+      const target = expectedProductIdOrSlug.trim().toLowerCase();
+      const matchId = license.productId.toLowerCase() === target;
+      const matchSlug = license.product.slug.toLowerCase() === target;
+      const matchName = license.product.name.toLowerCase() === target;
+      if (!matchId && !matchSlug && !matchName) {
+        return {
+          success: false,
+          valid: false,
+          message: `License key belongs to product "${license.product.name}", not this software.`,
+          uses: license.uses,
+          maxUses: license.maxUses,
+        };
+      }
     }
 
     if (license.isDisabled) {

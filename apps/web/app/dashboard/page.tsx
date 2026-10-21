@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import {
-  DollarSign,
+  IndianRupee,
   ShoppingCart,
   Eye,
   PlusCircle,
   BarChart3,
   Users,
   Wallet,
+  ShoppingBag,
+  Sparkles,
+  Heart,
 } from "lucide-react";
 import { formatPrice } from "@/lib/mock-data";
 import {
@@ -16,6 +19,7 @@ import {
   useRecentSales,
   useMyProducts,
 } from "@/hooks/api-hooks";
+import { authClient } from "@repo/auth/client";
 
 function StatCard({
   label,
@@ -49,7 +53,7 @@ function StatCard({
   );
 }
 
-export default function DashboardPage() {
+function CreatorDashboard() {
   const { data: overview, loading: overviewLoading } = useAnalyticsOverview();
   const { data: recentSales, loading: salesLoading } = useRecentSales(5);
   const { data: myProducts, loading: productsLoading } = useMyProducts({
@@ -60,18 +64,18 @@ export default function DashboardPage() {
     {
       label: "Total Revenue",
       value: overview
-        ? formatPrice(overview.totalRevenueCents, "usd")
-        : "$0.00",
-      icon: DollarSign,
+        ? formatPrice(overview.totalRevenueCents, "inr")
+        : "₹0",
+      icon: IndianRupee,
       color: "bg-digi-pink",
     },
     {
       label: "Ready to Withdraw",
       value: overview
         ? overview.withdrawableRevenueCents >= overview.minimumWithdrawalCents
-          ? formatPrice(overview.withdrawableRevenueCents, "usd")
-          : `${formatPrice(overview.withdrawableRevenueCents, "usd")} (min $100)`
-        : "$0.00",
+          ? formatPrice(overview.withdrawableRevenueCents, "inr")
+          : `${formatPrice(overview.withdrawableRevenueCents, "inr")} (min ₹10,000)`
+        : "₹0",
       icon: Wallet,
       color: "bg-digi-mint",
     },
@@ -148,7 +152,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <span className="font-bold text-sm shrink-0 bg-emerald-500/20 text-emerald-400 border-emerald-500/40 px-2 py-1 brutal-border text-xs">
-                    +{formatPrice(sale.amountCents, "usd")}
+                    +{formatPrice(sale.amountCents, "inr")}
                   </span>
                 </div>
               ))
@@ -239,3 +243,91 @@ export default function DashboardPage() {
     </>
   );
 }
+
+function BuyerDashboard() {
+  return (
+    <>
+      <div className="mb-8">
+        <h1 className="font-heading font-black text-3xl mb-1">My Account</h1>
+        <p className="text-muted-foreground">
+          Welcome back! Manage your purchases, subscriptions, and settings.
+        </p>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <Link href="/dashboard/purchases" className="brutal-card p-6 hover:bg-muted/50 transition-colors group">
+          <div className="w-10 h-10 bg-digi-pink brutal-border flex items-center justify-center mb-4">
+            <ShoppingBag size={18} className="text-primary-foreground" />
+          </div>
+          <h3 className="font-heading font-bold text-lg mb-1 group-hover:text-primary transition-colors">
+            My Purchases
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            View and download your digital products.
+          </p>
+        </Link>
+
+        <Link href="/dashboard/following" className="brutal-card p-6 hover:bg-muted/50 transition-colors group">
+          <div className="w-10 h-10 bg-digi-lavender brutal-border flex items-center justify-center mb-4">
+            <Heart size={18} className="text-primary-foreground" />
+          </div>
+          <h3 className="font-heading font-bold text-lg mb-1 group-hover:text-primary transition-colors">
+            Following
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Creators and stores you follow.
+          </p>
+        </Link>
+
+        <Link href="/dashboard/settings" className="brutal-card p-6 hover:bg-muted/50 transition-colors group">
+          <div className="w-10 h-10 bg-digi-mint brutal-border flex items-center justify-center mb-4">
+            <Users size={18} className="text-primary-foreground" />
+          </div>
+          <h3 className="font-heading font-bold text-lg mb-1 group-hover:text-primary transition-colors">
+            Settings
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Account preferences and profile.
+          </p>
+        </Link>
+      </div>
+
+      {/* Become a Creator CTA */}
+      <div className="brutal-card p-8 bg-primary/5 border-2 border-dashed border-primary">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 bg-primary brutal-border flex items-center justify-center shrink-0">
+            <Sparkles size={22} className="text-primary-foreground" />
+          </div>
+          <div>
+            <h2 className="font-heading font-black text-xl mb-2">
+              Want to sell on DigiStore?
+            </h2>
+            <p className="text-muted-foreground mb-4 max-w-lg">
+              Set up your creator profile to sell digital products, courses,
+              memberships, and more. It only takes a minute!
+            </p>
+            <Link
+              href="/dashboard/creator-setup"
+              className="brutal-btn bg-primary text-primary-foreground text-sm font-bold inline-flex items-center gap-2"
+            >
+              <Sparkles size={16} /> Become a Creator
+            </Link>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default function DashboardPage() {
+  const { data: session } = authClient.useSession();
+  const user = session?.user as any;
+  const isCreator = user?.role === "creator" || Boolean(user?.username);
+
+  if (isCreator) {
+    return <CreatorDashboard />;
+  }
+
+  return <BuyerDashboard />;
+}
+

@@ -9,7 +9,8 @@ const router: ExpressRouter = Router();
  */
 export async function generateStampedSamplePdf(
   buyerEmail: string,
-  orderId: string
+  orderId: string,
+  creatorName?: string
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
 
@@ -149,13 +150,20 @@ export async function generateStampedSamplePdf(
     month: "short",
     day: "numeric",
   });
-  const watermarkText = `🔒 Licensed to: ${buyerEmail} • Order #${orderId.slice(0, 12)} • ${dateStr} • DigiStore DRM Protected`;
+
+  const headerWatermark = creatorName
+    ? `🔒 Created by: ${creatorName} • DigiStore Official Publication • Order #${orderId.slice(0, 12)}`
+    : `🔒 Licensed to: ${buyerEmail} • Order #${orderId.slice(0, 12)} • ${dateStr} • DigiStore DRM Protected`;
+
+  const footerWatermark = creatorName
+    ? `© ${new Date().getFullYear()} ${creatorName}. All Rights Reserved • Licensed to: ${buyerEmail}`
+    : `🔒 Licensed to: ${buyerEmail} • Order #${orderId.slice(0, 12)} • ${dateStr} • DigiStore DRM Protected`;
 
   for (const page of pages) {
     const { width, height } = page.getSize();
 
     // Top Header Watermark
-    page.drawText(watermarkText, {
+    page.drawText(headerWatermark, {
       x: 40,
       y: height - 25,
       size: 8,
@@ -179,7 +187,7 @@ export async function generateStampedSamplePdf(
       color: rgb(0.8, 0.8, 0.8),
     });
 
-    page.drawText(watermarkText, {
+    page.drawText(footerWatermark, {
       x: 40,
       y: 20,
       size: 8,

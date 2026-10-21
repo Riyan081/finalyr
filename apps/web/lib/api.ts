@@ -314,6 +314,8 @@ export interface ApiProduct {
   previewUrl?: string | null;
   status: "draft" | "published" | "archived";
   isListedOnDiscover: boolean;
+  watermarkPdf?: boolean;
+  hasLicenseKeys?: boolean;
   maxPurchaseCount?: number | null;
   callToAction: string;
   category?: string | null;
@@ -674,6 +676,8 @@ export interface CreateProductPayload {
   productType?: "digital" | "membership" | "course" | "bundle";
   recurrence?: "monthly" | "quarterly" | "yearly" | null;
   isListedOnDiscover?: boolean;
+  watermarkPdf?: boolean;
+  hasLicenseKeys?: boolean;
   maxPurchaseCount?: number | null;
   callToAction?: string;
   category?: string | null;
@@ -692,11 +696,8 @@ export interface SetupCreatorPayload {
 }
 
 /** Format priceCents to display string */
-export function formatCents(cents: number, currency = "usd"): string {
-  if (currency === "inr" || currency === "INR") {
-    return `₹${(cents / 100).toLocaleString("en-IN")}`;
-  }
-  return `$${(cents / 100).toFixed(2)}`;
+export function formatCents(cents: number, currency = "inr"): string {
+  return `₹${((cents || 0) / 100).toLocaleString("en-IN")}`;
 }
 
 // --- Checkout � Polar + Razorpay ---------------------------------------------
@@ -884,7 +885,7 @@ export interface FollowingItem {
 }
 
 export interface PayoutProviderStatus { connected: boolean; onboarded: boolean; accountId: string | null; configured: boolean; }
-export interface OrderItem { id: string; amountCents: number; currency: string; status: string; paymentProvider: string; createdAt: string; customerEmail: string; customerName?: string | null; product: { id: string; name: string; slug: string; thumbnailUrl?: string | null }; variant?: { name: string } | null; }
+export interface OrderItem { id: string; amountCents: number; currency: string; status: string; paymentProvider: string; createdAt: string; customerEmail: string; customerName?: string | null; product: { id: string; name: string; slug: string; thumbnailUrl?: string | null }; variant?: { name: string } | null; licenseKeys?: Array<{ id?: string; licenseKey: string; uses: number; maxUses: number; isDisabled: boolean }>; }
 export interface OrderDetail extends OrderItem { licenseKeys: Array<{ licenseKey: string; uses: number; maxUses: number; isDisabled: boolean }>; product: OrderItem["product"] & { files: ProductFile[]; creator?: { username?: string | null } }; }
 export interface DownloadOrderInfo { id: string; productName: string; files: ProductFile[]; licenseKeys: Array<{ licenseKey: string; uses: number; maxUses: number; isDisabled: boolean }>; }
 export interface DiscountCode { id: string; code: string; discountType: "percentage" | "fixed"; discountValue: number; maxUses?: number | null; currentUses: number; validFrom: string; validUntil?: string | null; product: { id: string; name: string }; createdAt: string; }
@@ -1061,13 +1062,21 @@ export interface GenerateCopyResponse {
   keyFeatures: string[];
 }
 
+export interface SemanticSearchResponse {
+  items: SemanticSearchResultItem[];
+  didYouMean?: string | null;
+}
+
 export const aiApi = {
   /** GET /api/ai/semantic-search */
-  semanticSearch: async (q: string, limit = 12, category?: string) => {
+  semanticSearch: async (q: string, limit = 12, category?: string): Promise<SemanticSearchResponse> => {
     const res = await api.get("/api/ai/semantic-search", {
       params: { q, limit, category },
     });
-    return unwrap<SemanticSearchResultItem[]>(res);
+    return {
+      items: res.data.data ?? [],
+      didYouMean: res.data.didYouMean ?? null,
+    };
   },
 
   /** GET /api/ai/recommendations/:productId */

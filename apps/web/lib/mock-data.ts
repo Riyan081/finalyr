@@ -8,6 +8,7 @@ export { type ApiProduct, type DiscoverProduct, formatCents } from "./api";
 // These match the backend PRODUCT_CATEGORIES enum in packages/common/schemas/product.schema.ts
 export const CATEGORIES = [
   "3d",
+  "animation",
   "audio",
   "business",
   "comics",
@@ -16,9 +17,13 @@ export const CATEGORIES = [
   "education",
   "fiction",
   "film",
+  "fitness",
+  "gaming",
   "music",
   "photography",
+  "self-improvement",
   "software",
+  "writing",
   "other",
 ] as const;
 
@@ -26,18 +31,23 @@ export type ProductCategory = (typeof CATEGORIES)[number];
 
 // Display labels for categories
 export const CATEGORY_LABELS: Record<string, string> = {
-  "3d": "3D",
-  audio: "Audio",
-  business: "Business & Money",
+  "3d": "3D & CG Assets",
+  animation: "Animation & VFX",
+  audio: "Audio & Sound Effects",
+  business: "Business & Finance",
   comics: "Comics & Graphic Novels",
-  design: "Design",
-  drawing: "Drawing & Painting",
-  education: "Education",
+  design: "Design & UI Kits",
+  drawing: "Drawing & Digital Art",
+  education: "Education & Courses",
   fiction: "Fiction Books",
-  film: "Film",
-  music: "Music & Sound Design",
-  photography: "Photography",
-  software: "Software Development",
+  film: "Film & Video Templates",
+  fitness: "Fitness & Health",
+  gaming: "Gaming & Game Assets",
+  music: "Music & Production",
+  photography: "Photography & Presets",
+  "self-improvement": "Self Improvement & Productivity",
+  software: "Software, Plugins & Code",
+  writing: "Writing & Publishing",
   other: "Other",
 };
 
@@ -53,8 +63,13 @@ export const CATEGORY_COLORS: Record<string, string> = {
   photography: "bg-digi-pink",
   business: "bg-digi-yellow",
   "3d": "bg-digi-peach",
+  animation: "bg-digi-mint",
   audio: "bg-digi-lavender",
   film: "bg-digi-mint",
+  fitness: "bg-digi-peach",
+  gaming: "bg-digi-yellow",
+  "self-improvement": "bg-digi-mint",
+  writing: "bg-digi-lavender",
   other: "bg-digi-pink",
 };
 
@@ -63,9 +78,6 @@ export const CATEGORY_COLORS: Record<string, string> = {
  * Format a price in cents to a display string.
  * The backend stores all prices in cents (e.g. 999 = $9.99).
  */
-export const formatPrice = (cents: number, currency = "usd"): string => {
-  if (currency === "inr" || currency === "INR") {
-    return `₹${(cents / 100).toLocaleString("en-IN")}`;
-  }
-  return `$${(cents / 100).toFixed(2)}`;
+export const formatPrice = (cents: number, currency = "inr"): string => {
+  return `₹${((cents || 0) / 100).toLocaleString("en-IN")}`;
 };

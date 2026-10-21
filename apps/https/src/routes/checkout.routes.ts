@@ -173,6 +173,8 @@ router.get("/download/:orderId", async (req: Request, res: Response) => {
   sendSuccess(res, "Download token generated", result);
 });
 
+import { getFileStream } from "@repo/storage";
+
 // GET /api/checkout/file?token=...&fileId=... — stream file or dynamically stamped PDF to buyer
 router.get("/file", async (req: Request, res: Response) => {
   try {
@@ -190,9 +192,33 @@ router.get("/file", async (req: Request, res: Response) => {
       return;
     }
 
+    const fileKey = (result as any).fileKey;
+    if (!fileKey) {
+      res.status(404).send("File key not found");
+      return;
+    }
+
+    const s3Obj = await getFileStream(fileKey);
+
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
     res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
-    res.setHeader("Content-Type", (result as any).fileType || "application/octet-stream");
-    res.redirect(302, `/api/files/stream/${(result as any).fileKey}`);
+    res.setHeader("Content-Type", (result as any).fileType || s3Obj.ContentType || "application/octet-stream");
+    if (s3Obj.ContentLength) {
+      res.setHeader("Content-Length", s3Obj.ContentLength);
+    }
+
+    if (s3Obj.Body) {
+      if (typeof (s3Obj.Body as any).pipe === "function") {
+        (s3Obj.Body as any).pipe(res);
+      } else if (typeof (s3Obj.Body as any).transformToByteArray === "function") {
+        const bytes = await (s3Obj.Body as any).transformToByteArray();
+        res.send(Buffer.from(bytes));
+      } else {
+        res.status(500).send("Unsupported stream body from storage");
+      }
+    } else {
+      res.status(404).send("File empty or not found in storage");
+    }
   } catch (err: any) {
     res.status(400).send(err.message || "Failed to download file");
   }

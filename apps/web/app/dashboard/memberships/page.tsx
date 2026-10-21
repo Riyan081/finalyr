@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Users,
   Repeat,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   PlusCircle,
   RefreshCw,
@@ -177,10 +177,10 @@ export default function MembershipsPage() {
         <div className="brutal-card p-5 border-l-4 border-l-primary">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
             <span className="text-xs font-bold uppercase tracking-wide">Monthly Recurring (MRR)</span>
-            <DollarSign size={16} className="text-primary" />
+            <IndianRupee size={16} className="text-primary" />
           </div>
           <p className="font-heading font-black text-3xl">
-            {formatPrice(stats.mrrCents, "usd")}
+            {formatPrice(stats.mrrCents, "inr")}
           </p>
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
             <TrendingUp size={12} className="text-emerald-500" /> Active monthly run rate

@@ -9,9 +9,8 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
-import ProductCard from "@/components/product-card";
 import SmartRecommendations from "@/components/smart-recommendations";
-import { usePublicProduct, useTrendingProducts, useMembershipAccess } from "@/hooks/api-hooks";
+import { usePublicProduct, useMembershipAccess } from "@/hooks/api-hooks";
 import { CATEGORY_COLORS } from "@/lib/mock-data";
 import {
   checkoutApi, discountsApi, reviewsApi, membershipApi, type ProductVariant, type ProductReview,
@@ -84,7 +83,7 @@ function PaymentProviderPicker({
           <span className="text-lg">{p === "polar" ? "🌍" : "🇮🇳"}</span>
           <span>{p === "polar" ? "Polar" : "Razorpay"}</span>
           <span className={`text-[10px] font-normal ${value === p ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-            {p === "polar" ? "International ($)" : "India / UPI (₹)"}
+            {p === "polar" ? "International Card (₹)" : "India / UPI (₹)"}
           </span>
         </button>
       ))}
@@ -101,7 +100,6 @@ export default function ProductDetailPage() {
   const slug = params.slug as string;
 
   const { data: product, loading, error } = usePublicProduct(username, slug);
-  const { data: trendingProducts } = useTrendingProducts(4);
   const { data: session } = authClient.useSession();
 
   // Checkout state
@@ -135,23 +133,14 @@ export default function ProductDetailPage() {
   // Default custom amount for Pay What You Want
   useEffect(() => {
     if (product?.isPayWhatYouWant && !customAmount) {
-      const defaultCents = product.suggestedPriceCents || product.minPriceCents || 200;
-      if (provider === "razorpay") {
-        setCustomAmount(String(Math.round((defaultCents / 100) * 85)));
-      } else {
-        setCustomAmount((defaultCents / 100).toFixed(2));
-      }
+      const defaultCents = product.suggestedPriceCents || product.minPriceCents || 0;
+      setCustomAmount(String(Math.round(defaultCents / 100)));
     }
-  }, [product, provider, customAmount]);
+  }, [product, customAmount]);
 
-  const formatPriceForProvider = (cents: number, cur: string = "usd") => {
+  const formatPriceForProvider = (cents: number, cur: string = "inr") => {
     if (cents === 0) return "Free";
-    if (provider === "razorpay") {
-      const inrAmount = cur.toLowerCase() === "inr" ? cents / 100 : Math.round((cents / 100) * 85);
-      return `₹${inrAmount.toLocaleString("en-IN")}`;
-    }
-    const usdAmount = cur.toLowerCase() === "usd" ? cents / 100 : (cents / 100) / 85;
-    return `$${usdAmount.toFixed(2)}`;
+    return `₹${(cents / 100).toLocaleString("en-IN")}`;
   };
 
   const validateDiscount = async () => {
@@ -163,9 +152,7 @@ export default function ProductDetailPage() {
       const saved = info.savingsCents;
       const discountLabel = info.discount.type === "percentage"
         ? `${info.discount.value}% off`
-        : provider === "razorpay"
-          ? `₹${Math.round((saved / 100) * 85)} off`
-          : `$${(saved / 100).toFixed(2)} off`;
+        : `₹${Math.round(saved / 100).toLocaleString("en-IN")} off`;
       toast.success(`Discount applied: ${discountLabel}`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Invalid code";
@@ -607,23 +594,15 @@ export default function ProductDetailPage() {
                     <label className="text-xs font-bold block mb-1">Your price</label>
                     <div className="flex items-center brutal-border">
                       <span className="px-3 py-3 text-sm font-bold border-r-2 border-border bg-muted">
-                        {provider === "razorpay" ? "₹" : "$"}
+                        ₹
                       </span>
                       <input
                         type="number"
                         value={customAmount}
                         onChange={(e) => setCustomAmount(e.target.value)}
-                        placeholder={
-                          provider === "razorpay"
-                            ? `${Math.round(((product.suggestedPriceCents || product.minPriceCents || 0) / 100) * 85)}`
-                            : `${((product.suggestedPriceCents || product.minPriceCents || 0) / 100).toFixed(2)}`
-                        }
-                        min={
-                          provider === "razorpay"
-                            ? Math.round(((product.minPriceCents || 0) / 100) * 85)
-                            : (product.minPriceCents || 0) / 100
-                        }
-                        step={provider === "razorpay" ? "1" : "0.01"}
+                        placeholder={`${((product.suggestedPriceCents || product.minPriceCents || 0) / 100)}`}
+                        min={(product.minPriceCents || 0) / 100}
+                        step="1"
                         className="flex-1 px-3 py-3 bg-background text-sm focus:outline-none"
                       />
                     </div>
@@ -650,7 +629,7 @@ export default function ProductDetailPage() {
                   </div>
                   {discountInfo && (
                     <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
-                      <Check size={12} /> {discountInfo.discount.type === "percentage" ? `${discountInfo.discount.value}% off` : `${provider === "razorpay" ? `₹${Math.round((discountInfo.savingsCents / 100) * 85)}` : `$${(discountInfo.savingsCents / 100).toFixed(2)}`} off`} applied!
+                      <Check size={12} /> {discountInfo.discount.type === "percentage" ? `${discountInfo.discount.value}% off` : `₹${Math.round(discountInfo.savingsCents / 100).toLocaleString("en-IN")} off`} applied!
                     </p>
                   )}
                 </div>
@@ -722,7 +701,7 @@ export default function ProductDetailPage() {
                 </button>
 
                 <p className="text-[10px] text-muted-foreground text-center mt-3">
-                  {provider === "polar" ? "🌍 Instant international checkout ($)" : "🇮🇳 Instant India / UPI checkout (₹)"}
+                  {provider === "polar" ? "🌍 Instant card checkout (₹)" : "🇮🇳 Instant India / UPI checkout (₹)"}
                 </p>
               </div>
 
@@ -774,23 +753,8 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* AI Smart Product Recommendations */}
+        {/* Recommendations */}
         <SmartRecommendations currentProductId={product.id} />
-
-        {/* Related / Trending */}
-        {trendingProducts && trendingProducts.length > 0 && (
-          <div className="mt-16">
-            <h2 className="font-heading font-black text-2xl mb-6">More from Trending Creators</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {trendingProducts
-                .filter((p) => p.id !== product.id)
-                .slice(0, 4)
-                .map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <Footer />

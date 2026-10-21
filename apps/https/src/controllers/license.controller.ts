@@ -9,8 +9,18 @@ export const licenseController = {
    */
   verify: async (req: Request, res: Response) => {
     try {
-      const { licenseKey, key, incrementUses } = req.body;
+      const {
+        licenseKey,
+        key,
+        incrementUses,
+        productId,
+        product_id,
+        productSlug,
+        product_permalink,
+      } = req.body;
       const targetKey = licenseKey || key;
+      const expectedProduct = productId || product_id || productSlug || product_permalink;
+
       if (!targetKey) {
         sendError(res, "Missing license key in request body", 400);
         return;
@@ -18,7 +28,8 @@ export const licenseController = {
 
       const result = await licenseService.verifyKey(
         targetKey,
-        incrementUses !== false
+        incrementUses !== false,
+        expectedProduct
       );
 
       if (!result.valid) {

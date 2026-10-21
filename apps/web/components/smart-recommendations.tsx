@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Star, ShoppingBag, ArrowUpRight, Cpu, Layers } from "lucide-react";
+import { Sparkles, Star, ShoppingBag } from "lucide-react";
 import { aiApi, type RecommendationItem } from "@/lib/api";
 
 interface SmartRecommendationsProps {
@@ -24,7 +24,7 @@ export default function SmartRecommendations({ currentProductId }: SmartRecommen
           setRecommendations(data);
         }
       } catch (err) {
-        console.error("Failed to load smart recommendations:", err);
+        console.error("Failed to load recommendations:", err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -46,7 +46,7 @@ export default function SmartRecommendations({ currentProductId }: SmartRecommen
           <div className="p-1.5 bg-digi-pink text-black rounded border border-black animate-pulse">
             <Sparkles size={18} />
           </div>
-          <h2 className="font-heading font-black text-2xl">Calculating Smart Recommendations...</h2>
+          <h2 className="font-heading font-black text-2xl">Loading Recommendations...</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -63,29 +63,14 @@ export default function SmartRecommendations({ currentProductId }: SmartRecommen
 
   return (
     <div className="mt-16 pt-10 border-t-2 border-foreground/20">
-      {/* Section Header with AI Badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 bg-digi-pink text-black rounded border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-              <Sparkles size={18} />
-            </div>
-            <h2 className="font-heading font-black text-2xl tracking-tight">
-              AI Smart Recommendations
-            </h2>
-            <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-digi-mint text-black border border-black rounded">
-              Hybrid Recommender
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Ranked via Vector Cosine Proximity (60%) and Co-Purchase Collaborative Filtering (40%)
-          </p>
+      {/* Section Header */}
+      <div className="flex items-center gap-2 mb-6">
+        <div className="p-1.5 bg-digi-pink text-black rounded border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          <Sparkles size={18} />
         </div>
-
-        <div className="hidden lg:flex items-center gap-2 text-[11px] font-bold text-muted-foreground bg-muted/40 px-3 py-1.5 border border-foreground/20">
-          <Cpu size={14} className="text-primary" />
-          <span>Real-time Cosine Scoring</span>
-        </div>
+        <h2 className="font-heading font-black text-2xl tracking-tight">
+          Recommendations
+        </h2>
       </div>
 
       {/* Grid of Recommendation Cards */}
@@ -96,7 +81,7 @@ export default function SmartRecommendations({ currentProductId }: SmartRecommen
             : `/product/_/${item.slug}`;
 
           const priceStr =
-            item.priceCents === 0 ? "Free" : `$${(item.priceCents / 100).toFixed(2)}`;
+            item.priceCents === 0 ? "Free" : `₹${(item.priceCents / 100).toLocaleString("en-IN")}`;
 
           // Distinct color token for match badge
           const badgeBg =
