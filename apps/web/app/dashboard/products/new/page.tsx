@@ -14,7 +14,6 @@ const PRODUCT_TYPES = [
   { value: "digital", label: "Digital Download" },
   { value: "course", label: "Online Course" },
   { value: "membership", label: "Membership" },
-  { value: "bundle", label: "Bundle" },
 ] as const;
 
 const RECURRENCE_OPTIONS = [
@@ -40,7 +39,7 @@ export default function NewProductPage() {
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
   const [productType, setProductType] = useState<
-    "digital" | "course" | "membership" | "bundle"
+    "digital" | "course" | "membership"
   >("digital");
   const [recurrence, setRecurrence] = useState<
     "monthly" | "quarterly" | "yearly" | ""
@@ -273,7 +272,7 @@ export default function NewProductPage() {
         <div>
           <h1 className="font-heading font-black text-3xl">New Product</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Publish a digital download, course, bundle, or membership.
+            Publish a digital download, course, or membership.
           </p>
         </div>
         <button
@@ -290,7 +289,7 @@ export default function NewProductPage() {
         {/* ── Product Type ── */}
         <div className="brutal-card p-6 space-y-5">
           <h2 className="font-heading font-bold text-lg">Product Type</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {PRODUCT_TYPES.map((pt) => (
               <button
                 key={pt.value}

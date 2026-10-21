@@ -20,7 +20,6 @@ const PRODUCT_TYPES = [
   { value: "digital", label: "Digital Download" },
   { value: "course", label: "Online Course" },
   { value: "membership", label: "Membership" },
-  { value: "bundle", label: "Bundle" },
 ] as const;
 
 const RECURRENCE_OPTIONS = [
@@ -43,7 +42,7 @@ export default function EditProductPage() {
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
-  const [productType, setProductType] = useState<"digital" | "course" | "membership" | "bundle">("digital");
+  const [productType, setProductType] = useState<"digital" | "course" | "membership">("digital");
   const [recurrence, setRecurrence] = useState<"monthly" | "quarterly" | "yearly" | "">("");
   const [category, setCategory] = useState("");
   const [tags, setTags] = useState<string[]>([]);
