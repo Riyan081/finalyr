@@ -431,7 +431,7 @@ export default function CreatorSetupPage() {
                 style={{ backgroundColor: accentColor }}
               >
                 <span className="font-heading font-black text-white text-sm">
-                  {(session?.user?.name || "?").charAt(0)}
+                  {(session?.user?.name || "Creator").charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>

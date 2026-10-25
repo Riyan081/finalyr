@@ -5,6 +5,7 @@ import { Sparkles, Loader2, X, Check, ArrowRight, Wand2, Tag, IndianRupee, FileT
 import { aiApi, type GenerateCopyResponse } from "@/lib/api";
 import { CATEGORY_LABELS } from "@/lib/mock-data";
 import { toast } from "sonner";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 interface CreatorAIStudioModalProps {
   isOpen: boolean;
@@ -210,8 +211,8 @@ export default function CreatorAIStudioModal({
               </div>
 
               {/* Markdown Description Snippet */}
-              <div className="p-4 bg-background brutal-border max-h-48 overflow-y-auto font-mono text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
-                {result.description}
+              <div className="p-4 bg-background brutal-border max-h-56 overflow-y-auto leading-relaxed">
+                <MarkdownRenderer content={result.description} />
               </div>
 
               {/* Action Buttons */}

@@ -12,6 +12,9 @@ import {
   ShoppingBag,
   Sparkles,
   Heart,
+  Clock,
+  ArrowUpRight,
+  ShieldCheck,
 } from "lucide-react";
 import { formatPrice } from "@/lib/mock-data";
 import {
@@ -27,30 +30,48 @@ function StatCard({
   icon: Icon,
   color,
   loading,
+  subtitle,
+  href,
 }: {
   label: string;
   value: string;
   icon: React.ElementType;
   color: string;
   loading?: boolean;
+  subtitle?: string;
+  href?: string;
 }) {
-  return (
-    <div className="brutal-card p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-        <div className={`w-8 h-8 ${color} brutal-border flex items-center justify-center`}>
-          <Icon size={14} className="text-primary-foreground" />
+  const content = (
+    <div className={`brutal-card p-5 h-full flex flex-col justify-between ${href ? "hover:translate-x-0.5 hover:translate-y-0.5 transition-transform" : ""}`}>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground truncate mr-1">
+            {label}
+          </span>
+          <div className={`w-8 h-8 ${color} brutal-border flex items-center justify-center shrink-0`}>
+            <Icon size={14} className="text-black" />
+          </div>
         </div>
+        {loading ? (
+          <div className="h-8 bg-muted animate-pulse rounded w-24" />
+        ) : (
+          <p className="font-heading font-black text-2xl text-foreground">{value}</p>
+        )}
       </div>
-      {loading ? (
-        <div className="h-8 bg-muted animate-pulse rounded w-24" />
-      ) : (
-        <p className="font-heading font-black text-2xl">{value}</p>
+      {subtitle && (
+        <p className="text-[11px] text-muted-foreground mt-2 border-t border-border/50 pt-1.5 flex items-center justify-between">
+          <span>{subtitle}</span>
+          {href && <ArrowUpRight size={12} className="opacity-70" />}
+        </p>
       )}
     </div>
   );
+
+  if (href) {
+    return <Link href={href} className="block">{content}</Link>;
+  }
+
+  return content;
 }
 
 function CreatorDashboard() {
@@ -72,12 +93,26 @@ function CreatorDashboard() {
     {
       label: "Ready to Withdraw",
       value: overview
-        ? overview.withdrawableRevenueCents >= overview.minimumWithdrawalCents
-          ? formatPrice(overview.withdrawableRevenueCents, "inr")
-          : `${formatPrice(overview.withdrawableRevenueCents, "inr")} (min ₹10,000)`
+        ? formatPrice(overview.withdrawableRevenueCents, "inr")
         : "₹0",
+      subtitle: overview
+        ? overview.withdrawableRevenueCents >= overview.minimumWithdrawalCents
+          ? "Available to withdraw"
+          : `Min ${formatPrice(overview.minimumWithdrawalCents, "inr")}`
+        : undefined,
       icon: Wallet,
       color: "bg-digi-mint",
+      href: "/dashboard/payouts",
+    },
+    {
+      label: "In 30-Day Escrow",
+      value: overview
+        ? formatPrice(overview.escrowRevenueCents ?? 0, "inr")
+        : "₹0",
+      subtitle: "Unlocks after 30 days",
+      icon: Clock,
+      color: "bg-digi-yellow",
+      href: "/dashboard/payouts",
     },
     {
       label: "Total Sales",
@@ -92,7 +127,7 @@ function CreatorDashboard() {
       color: "bg-digi-lavender",
     },
     {
-      label: "Published Products",
+      label: "Published",
       value: overview ? String(overview.productCount) : "0",
       icon: Eye,
       color: "bg-digi-peach",
@@ -108,8 +143,33 @@ function CreatorDashboard() {
         </p>
       </div>
 
+      {/* Pending Payout Banner if any */}
+      {overview && (overview.pendingPayoutCents ?? 0) > 0 && (
+        <div className="mb-6 p-4 brutal-card bg-blue-500/10 border-2 border-blue-500/40 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-500 text-white brutal-border flex items-center justify-center shrink-0">
+              <Clock size={16} />
+            </div>
+            <div>
+              <p className="font-heading font-bold text-sm">
+                Withdrawal in Progress: {formatPrice(overview.pendingPayoutCents!, "inr")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Your payout request is being processed by administration.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/dashboard/payouts"
+            className="brutal-btn bg-blue-500 text-white text-xs font-bold px-3 py-1.5 shrink-0"
+          >
+            View Details
+          </Link>
+        </div>
+      )}
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         {stats.map((stat) => (
           <StatCard
             key={stat.label}
@@ -182,6 +242,12 @@ function CreatorDashboard() {
                 className="w-full brutal-btn bg-card text-sm font-semibold py-3 flex items-center justify-center gap-2"
               >
                 <BarChart3 size={16} /> View Analytics
+              </Link>
+              <Link
+                href="/dashboard/payouts"
+                className="w-full brutal-btn bg-card text-sm font-semibold py-3 flex items-center justify-center gap-2"
+              >
+                <Wallet size={16} /> Payouts & Escrow
               </Link>
             </div>
           </div>

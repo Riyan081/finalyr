@@ -1,4 +1,4 @@
-import { PutObjectCommand, CreateBucketCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, CreateBucketCommand, HeadBucketCommand, PutBucketPolicyCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { storageClient, BUCKET_NAME } from "./client.js";
 import crypto from "crypto";
@@ -206,5 +206,34 @@ export async function ensureBucketExists(): Promise<void> {
   } catch {
     await storageClient.send(new CreateBucketCommand({ Bucket: BUCKET_NAME }));
     console.log(`[Storage] Created bucket: ${BUCKET_NAME}`);
+  }
+
+  // Ensure public read policy so browser can load product thumbnails & assets without 403 Forbidden
+  try {
+    const policy = {
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Principal: { AWS: ["*"] },
+          Action: ["s3:GetBucketLocation", "s3:ListBucket"],
+          Resource: [`arn:aws:s3:::${BUCKET_NAME}`],
+        },
+        {
+          Effect: "Allow",
+          Principal: { AWS: ["*"] },
+          Action: ["s3:GetObject"],
+          Resource: [`arn:aws:s3:::${BUCKET_NAME}/*`],
+        },
+      ],
+    };
+    await storageClient.send(
+      new PutBucketPolicyCommand({
+        Bucket: BUCKET_NAME,
+        Policy: JSON.stringify(policy),
+      })
+    );
+  } catch (err: any) {
+    console.warn(`[Storage] Could not set public bucket policy on ${BUCKET_NAME}:`, err.message);
   }
 }

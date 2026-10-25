@@ -5,6 +5,105 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 const router: ExpressRouter = Router();
 
 /**
+ * Sanitize text to ensure it only contains characters encodable by WinAnsi (Windows-1252 / ISO-8859-1).
+ * Replaces lock emojis and unencodable characters safely so pdf-lib never throws WinAnsi error.
+ */
+export function sanitizeForWinAnsi(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/[\u{1F512}\u{1F513}]/gu, "[SECURE]") // Lock emojis (0x1f512, 0x1f513)
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")         // All other emojis
+    .replace(/[\u{2600}-\u{26FF}]/gu, "")          // Misc symbols
+    .replace(/[\u{2700}-\u{27BF}]/gu, "")          // Dingbats
+    .replace(/[^\x00-\xFF]/g, (char) => {
+      // Safe ASCII transliterations for common symbols
+      if (char === "—" || char === "–") return "-";
+      if (char === "•") return "|";
+      if (char === '"' || char === '"') return '"';
+      if (char === "'" || char === "'") return "'";
+      if (char === "©") return "(c)";
+      if (char === "®") return "(R)";
+      if (char === "™") return "TM";
+      if (char === "₹") return "INR ";
+      if (char === "€") return "EUR ";
+      if (char === "£") return "GBP ";
+      return "";
+    });
+}
+
+/**
+ * Stamp anti-piracy DRM watermarks onto each page of an existing PDF buffer.
+ */
+export async function stampPdf(
+  inputBytes: Uint8Array | Buffer,
+  buyerEmail: string,
+  orderId: string,
+  creatorName?: string
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(inputBytes, { ignoreEncryption: true });
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const pages = pdfDoc.getPages();
+
+  const dateStr = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  const safeCreator = sanitizeForWinAnsi(creatorName || "Creator");
+  const safeBuyer = sanitizeForWinAnsi(buyerEmail || "customer@digistore.io");
+  const safeOrderId = sanitizeForWinAnsi(orderId.slice(0, 12));
+
+  const headerWatermark = creatorName
+    ? `[SECURE DRM] Created by: ${safeCreator} | DigiStore Official Publication | Order #${safeOrderId}`
+    : `[SECURE DRM] Licensed to: ${safeBuyer} | Order #${safeOrderId} | ${dateStr} | DigiStore DRM Protected`;
+
+  const footerWatermark = creatorName
+    ? `(c) ${new Date().getFullYear()} ${safeCreator}. All Rights Reserved | Licensed to: ${safeBuyer}`
+    : `[SECURE DRM] Licensed to: ${safeBuyer} | Order #${safeOrderId} | ${dateStr} | DigiStore DRM Protected`;
+
+  for (const page of pages) {
+    const { width, height } = page.getSize();
+
+    // Top Header Watermark
+    page.drawText(headerWatermark, {
+      x: 40,
+      y: height - 25,
+      size: 8,
+      font: fontBold,
+      color: rgb(0.7, 0.15, 0.2), // Noticeable security tint
+    });
+
+    // Top line
+    page.drawLine({
+      start: { x: 40, y: height - 32 },
+      end: { x: width - 40, y: height - 32 },
+      thickness: 0.5,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+
+    // Bottom line
+    page.drawLine({
+      start: { x: 40, y: 35 },
+      end: { x: width - 40, y: 35 },
+      thickness: 0.5,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+
+    // Bottom Footer Watermark
+    page.drawText(footerWatermark, {
+      x: 40,
+      y: 20,
+      size: 8,
+      font: fontBold,
+      color: rgb(0.7, 0.15, 0.2),
+    });
+  }
+
+  return pdfDoc.save();
+}
+
+/**
  * Generate a clean sample PDF publication and stamp anti-piracy licensing metadata.
  */
 export async function generateStampedSamplePdf(
@@ -87,7 +186,10 @@ export async function generateStampedSamplePdf(
     color: rgb(0, 0, 0),
   });
 
-  page1.drawText(`Authorized Licensee: ${buyerEmail}`, {
+  const safeBuyer = sanitizeForWinAnsi(buyerEmail || "customer@digistore.io");
+  const safeOrderId = sanitizeForWinAnsi(orderId);
+
+  page1.drawText(`Authorized Licensee: ${safeBuyer}`, {
     x: 70,
     y: 525,
     size: 10,
@@ -95,7 +197,7 @@ export async function generateStampedSamplePdf(
     color: rgb(0.1, 0.1, 0.1),
   });
 
-  page1.drawText(`Transaction Hash: ${orderId}`, {
+  page1.drawText(`Transaction Hash: ${safeOrderId}`, {
     x: 70,
     y: 505,
     size: 9,
@@ -103,7 +205,7 @@ export async function generateStampedSamplePdf(
     color: rgb(0.3, 0.3, 0.3),
   });
 
-  page1.drawText(`Protocol: DigiStore Dynamic DRM v2.1 • Non-Transferable`, {
+  page1.drawText(`Protocol: DigiStore Dynamic DRM v2.1 | Non-Transferable`, {
     x: 70,
     y: 485,
     size: 9,
@@ -143,60 +245,8 @@ export async function generateStampedSamplePdf(
     }
   );
 
-  // Apply DRM Watermark to ALL pages (Top and Bottom)
-  const pages = pdfDoc.getPages();
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
-  const headerWatermark = creatorName
-    ? `🔒 Created by: ${creatorName} • DigiStore Official Publication • Order #${orderId.slice(0, 12)}`
-    : `🔒 Licensed to: ${buyerEmail} • Order #${orderId.slice(0, 12)} • ${dateStr} • DigiStore DRM Protected`;
-
-  const footerWatermark = creatorName
-    ? `© ${new Date().getFullYear()} ${creatorName}. All Rights Reserved • Licensed to: ${buyerEmail}`
-    : `🔒 Licensed to: ${buyerEmail} • Order #${orderId.slice(0, 12)} • ${dateStr} • DigiStore DRM Protected`;
-
-  for (const page of pages) {
-    const { width, height } = page.getSize();
-
-    // Top Header Watermark
-    page.drawText(headerWatermark, {
-      x: 40,
-      y: height - 25,
-      size: 8,
-      font: fontBold,
-      color: rgb(0.7, 0.15, 0.2), // Noticeable security tint
-    });
-
-    // Top line
-    page.drawLine({
-      start: { x: 40, y: height - 32 },
-      end: { x: width - 40, y: height - 32 },
-      thickness: 0.5,
-      color: rgb(0.8, 0.8, 0.8),
-    });
-
-    // Bottom Footer Watermark
-    page.drawLine({
-      start: { x: 40, y: 35 },
-      end: { x: width - 40, y: 35 },
-      thickness: 0.5,
-      color: rgb(0.8, 0.8, 0.8),
-    });
-
-    page.drawText(footerWatermark, {
-      x: 40,
-      y: 20,
-      size: 8,
-      font: fontBold,
-      color: rgb(0.7, 0.15, 0.2),
-    });
-  }
-
-  return pdfDoc.save();
+  const rawBytes = await pdfDoc.save();
+  return stampPdf(rawBytes, safeBuyer, safeOrderId, creatorName);
 }
 
 /**

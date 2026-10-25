@@ -1,7 +1,8 @@
 import prisma from "@repo/db/client";
 import crypto from "crypto";
 import { NotFoundError, ForbiddenError } from "../utils/errors.js";
-import { generateStampedSamplePdf } from "../routes/drm.routes.js";
+import { generateStampedSamplePdf, stampPdf } from "../routes/drm.routes.js";
+import { getFileStream } from "@repo/storage";
 
 /**
  * Download service — generates time-limited signed download tokens.
@@ -156,6 +157,57 @@ export const downloadService = {
             "Creator"
           : undefined;
 
+      // Check if actual file exists in S3 storage
+      if (file.fileKey && file.fileKey !== "sample") {
+        try {
+          const s3Obj = await getFileStream(file.fileKey);
+          if (s3Obj.Body) {
+            let buffer: Buffer;
+            if (typeof (s3Obj.Body as any).transformToByteArray === "function") {
+              const bytes = await (s3Obj.Body as any).transformToByteArray();
+              buffer = Buffer.from(bytes);
+            } else if (Buffer.isBuffer(s3Obj.Body)) {
+              buffer = s3Obj.Body;
+            } else {
+              const chunks: any[] = [];
+              for await (const chunk of s3Obj.Body as any) {
+                chunks.push(chunk);
+              }
+              buffer = Buffer.concat(chunks);
+            }
+
+            // Stamp forensic watermark if enabled
+            if ((order.product as any).watermarkPdf !== false) {
+              const stampedBytes = await stampPdf(
+                buffer,
+                order.customerEmail,
+                order.id,
+                creatorName
+              );
+              return {
+                isPdf: true,
+                pdfBytes: stampedBytes,
+                fileName: file.fileName.toLowerCase().endsWith(".pdf")
+                  ? file.fileName
+                  : `${file.fileName}.pdf`,
+              };
+            } else {
+              return {
+                isPdf: true,
+                pdfBytes: buffer,
+                fileName: file.fileName,
+              };
+            }
+          }
+        } catch (err: any) {
+          console.warn(
+            `[DownloadService] Failed to load/stamp real PDF from S3 (${file.fileKey}):`,
+            err.message
+          );
+        }
+      }
+
+      // Fallback for sample demo products without S3 upload
       const sampleBytes = await generateStampedSamplePdf(
         order.customerEmail,
         order.id,

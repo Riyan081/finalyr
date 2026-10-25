@@ -33,11 +33,26 @@ export const licenseController = {
       );
 
       if (!result.valid) {
-        res.status(400).json(result);
+        res.status(400).json({
+          success: false,
+          valid: false,
+          uses: result.uses,
+          maxUses: result.maxUses,
+          message: result.message,
+          data: result,
+        });
         return;
       }
 
-      sendSuccess(res, result.message, result);
+      res.status(200).json({
+        success: true,
+        valid: true,
+        uses: result.uses,
+        maxUses: result.maxUses,
+        key: result.key,
+        message: result.message,
+        data: result,
+      });
     } catch (err: any) {
       sendError(res, err.message || "Failed to verify license key", 500);
     }
@@ -57,7 +72,14 @@ export const licenseController = {
       }
 
       const result = await licenseService.decrementKey(targetKey);
-      sendSuccess(res, result.message, result);
+      res.status(200).json({
+        success: true,
+        uses: result.uses,
+        maxUses: result.maxUses,
+        key: result.key,
+        message: result.message,
+        data: result,
+      });
     } catch (err: any) {
       sendError(res, err.message || "Failed to deactivate license key", 500);
     }

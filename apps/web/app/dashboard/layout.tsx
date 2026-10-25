@@ -14,6 +14,7 @@ const CREATOR_ONLY_ROUTES = [
   "/dashboard/orders",
   "/dashboard/discounts",
   "/dashboard/memberships",
+  "/dashboard/payouts",
 ];
 
 export default function DashboardLayout({

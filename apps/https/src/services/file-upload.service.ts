@@ -173,7 +173,7 @@ export const fileUploadService = {
     await uploadBuffer(fileKey, file.buffer, file.mimetype);
 
     // Build the public URL for the thumbnail
-    const s3Endpoint = process.env.S3_ENDPOINT || "http://localhost:9000";
+    const s3Endpoint = process.env.PUBLIC_S3_ENDPOINT || process.env.S3_ENDPOINT || "http://localhost:9000";
     const bucket = process.env.S3_BUCKET || "gumroad-files";
     const thumbnailUrl = `${s3Endpoint}/${bucket}/${fileKey}`;
 

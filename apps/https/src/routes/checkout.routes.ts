@@ -10,7 +10,7 @@ const router: import("express").Router = Router();
 
 // ─── Direct Purchase ────────────────────────────────────────────────────────
 // POST /api/checkout/direct — 1-click simple direct purchase (no gateway keys required)
-router.post("/direct", optionalAuth, async (req: Request, res: Response) => {
+router.post("/direct", requireAuth, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { productId, variantId, discountCode, customAmountCents, provider } = req.body;
 
@@ -19,8 +19,8 @@ router.post("/direct", optionalAuth, async (req: Request, res: Response) => {
     variantId,
     discountCode,
     customAmountCents,
-    userId: user?.id,
-    userEmail: user?.email,
+    userId: user.id,
+    userEmail: user.email,
     provider,
   });
 
@@ -30,7 +30,7 @@ router.post("/direct", optionalAuth, async (req: Request, res: Response) => {
 // ─── Polar Checkout ───────────────────────────────────────────────────────────
 
 // POST /api/checkout/session/polar — create Polar checkout session
-router.post("/session/polar", optionalAuth, async (req: Request, res: Response) => {
+router.post("/session/polar", requireAuth, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { productId, variantId, discountCode, customAmountCents } = req.body;
   const origin = req.headers.origin || "http://localhost:3000";
@@ -40,8 +40,8 @@ router.post("/session/polar", optionalAuth, async (req: Request, res: Response) 
     variantId,
     discountCode,
     customAmountCents,
-    userId: user?.id,
-    userEmail: user?.email,
+    userId: user.id,
+    userEmail: user.email,
     successUrl: `${origin}/purchase/{CHECKOUT_SESSION_ID}`,
     cancelUrl: req.headers.referer || origin,
   });
@@ -63,7 +63,7 @@ router.post(
 // ─── Razorpay Checkout ────────────────────────────────────────────────────────
 
 // POST /api/checkout/session/razorpay — create Razorpay order
-router.post("/session/razorpay", optionalAuth, async (req: Request, res: Response) => {
+router.post("/session/razorpay", requireAuth, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { productId, variantId, discountCode, customAmountCents } = req.body;
 
@@ -72,15 +72,15 @@ router.post("/session/razorpay", optionalAuth, async (req: Request, res: Respons
     variantId,
     discountCode,
     customAmountCents,
-    userId: user?.id,
-    userEmail: user?.email,
+    userId: user.id,
+    userEmail: user.email,
   });
 
   sendSuccess(res, "Razorpay order created", result, 201);
 });
 
 // POST /api/checkout/verify/razorpay — verify Razorpay payment + create DB order
-router.post("/verify/razorpay", optionalAuth, async (req: Request, res: Response) => {
+router.post("/verify/razorpay", requireAuth, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
 
@@ -88,8 +88,8 @@ router.post("/verify/razorpay", optionalAuth, async (req: Request, res: Response
     razorpayOrderId,
     razorpayPaymentId,
     razorpaySignature,
-    userId: user?.id,
-    userEmail: user?.email,
+    userId: user.id,
+    userEmail: user.email,
   });
 
   sendSuccess(res, "Payment verified", result);

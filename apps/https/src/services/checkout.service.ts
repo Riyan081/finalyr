@@ -4,7 +4,7 @@ import { polar, POLAR_WEBHOOK_SECRET } from "../lib/polar.js";
 import { razorpay, RAZORPAY_KEY_ID, RAZORPAY_WEBHOOK_SECRET } from "../lib/razorpay.js";
 import { orderService } from "./order.service.js";
 import { discountService } from "./discount.service.js";
-import { NotFoundError, BadRequestError, ForbiddenError } from "../utils/errors.js";
+import { NotFoundError, BadRequestError, ForbiddenError, UnauthorizedError } from "../utils/errors.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -119,6 +119,9 @@ export const checkoutService = {
     userEmail?: string;
     provider?: "polar" | "razorpay";
   }) {
+    if (!params.userId) {
+      throw new UnauthorizedError("You must be logged in to purchase products");
+    }
     const resolved = await resolveProductAndPrice(params);
     const { product, priceCents, variantName, discountCodeId } = resolved;
     const provider = params.provider || "polar";
@@ -192,6 +195,9 @@ export const checkoutService = {
     successUrl: string;
     cancelUrl: string;
   }) {
+    if (!params.userId) {
+      throw new UnauthorizedError("You must be logged in to purchase products");
+    }
     const resolved = await resolveProductAndPrice(params);
     const { product, priceCents, variantName, discountCodeId, platformFeeCents, creatorRevenueCents } = resolved;
 
@@ -340,6 +346,9 @@ export const checkoutService = {
     userId?: string;
     userEmail?: string;
   }) {
+    if (!params.userId) {
+      throw new UnauthorizedError("You must be logged in to purchase products");
+    }
     const resolved = await resolveProductAndPrice(params);
     const { product, priceCents, variantName, discountCodeId, platformFeeCents, creatorRevenueCents } = resolved;
 
@@ -440,6 +449,9 @@ export const checkoutService = {
     userId?: string;
     userEmail?: string;
   }) {
+    if (!params.userId) {
+      throw new UnauthorizedError("You must be logged in to purchase products");
+    }
     // If order was created in test mode or key secret not set, return orderId directly
     if (
       !process.env.RAZORPAY_KEY_SECRET ||

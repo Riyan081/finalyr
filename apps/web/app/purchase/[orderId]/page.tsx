@@ -186,9 +186,23 @@ export default function PurchaseSuccessPage() {
               {(order?.licenseKeys?.length ? order.licenseKeys : (downloadInfo?.info?.licenseKeys || [])).map((lk, idx) => (
                 <div key={idx} className="p-4 bg-muted/40 brutal-border space-y-2.5">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-muted-foreground uppercase font-mono">
-                      License #{idx + 1} • {lk.uses} of {lk.maxUses} device seats registered
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-muted-foreground uppercase font-mono">
+                        License #{idx + 1}
+                      </span>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 font-bold uppercase rounded ${
+                          (lk.uses ?? 0) >= (lk.maxUses ?? 5)
+                            ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                            : (lk.uses ?? 0) > 0
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                              : "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border border-zinc-500/30"
+                        }`}
+                      >
+                        {lk.uses ?? 0} of {lk.maxUses ?? 5} seats used
+                        {(lk.uses ?? 0) >= (lk.maxUses ?? 5) ? " (Limit Reached)" : ""}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleCopyKey(lk.licenseKey)}

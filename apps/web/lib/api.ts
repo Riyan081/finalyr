@@ -285,6 +285,28 @@ export const analyticsApi = {
   },
 };
 
+// ─── Payouts & Escrow (Creator) ─────────────────────────────────────────────
+
+export const payoutsApi = {
+  /** GET /api/payouts/status */
+  getStatus: async () => {
+    const res = await api.get("/api/payouts/status");
+    return unwrap<PayoutStatusResponse>(res);
+  },
+
+  /** POST /api/payouts/request */
+  requestPayout: async (amountCents?: number) => {
+    const res = await api.post("/api/payouts/request", { amountCents });
+    return unwrap<{ success: boolean; payout: PayoutRecord; remainingWithdrawableCents: number }>(res);
+  },
+
+  /** GET /api/payouts/history */
+  getHistory: async () => {
+    const res = await api.get("/api/payouts/history");
+    return unwrap<PayoutRecord[]>(res);
+  },
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Pagination {
@@ -626,11 +648,37 @@ export interface AdminSystemHealth {
 
 export interface AnalyticsOverview {
   totalRevenueCents: number;
+  creatorNetRevenueCents?: number;
+  escrowRevenueCents?: number;
+  alreadyPaidOutCents?: number;
+  pendingPayoutCents?: number;
   totalSales: number;
   productCount: number;
   followerCount: number;
   withdrawableRevenueCents: number;
   minimumWithdrawalCents: number;
+  holdingWindowDays?: number;
+}
+
+export interface PayoutRecord {
+  id: string;
+  creatorId: string;
+  amountCents: number;
+  currency: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  periodEnd?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayoutStatusResponse {
+  overview: AnalyticsOverview;
+  connectedGateways: {
+    polar: boolean;
+    razorpay: boolean;
+  };
+  payoutSchedule: string;
+  payouts: PayoutRecord[];
 }
 
 export interface RevenueDay {
@@ -700,7 +748,7 @@ export function formatCents(cents: number, currency = "inr"): string {
   return `₹${((cents || 0) / 100).toLocaleString("en-IN")}`;
 }
 
-// --- Checkout � Polar + Razorpay ---------------------------------------------
+// --- Checkout — Polar + Razorpay ---------------------------------------------
 
 export const checkoutApi = {
   directPurchase: async (data: { productId: string; variantId?: string; discountCode?: string; customAmountCents?: number; provider?: "polar" | "razorpay" }) => {

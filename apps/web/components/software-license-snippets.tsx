@@ -45,10 +45,11 @@ def verify_digistore_license(license_key, increment_seat=True):
         with urllib.request.urlopen(req, timeout=10) as response:
             res_data = json.loads(response.read().decode("utf-8"))
             if res_data.get("success") and res_data.get("valid"):
-                # License is valid and seat is registered!
-                email = res_data.get("order", {}).get("customerEmail")
-                seats = f"{res_data.get('uses')}/{res_data.get('maxUses')}"
-                return True, f"Active for {email} ({seats} seats)"
+                order_info = res_data.get("order") or res_data.get("data", {}).get("order", {})
+                email = order_info.get("customerEmail", "Customer")
+                uses = res_data.get("uses") if res_data.get("uses") is not None else res_data.get("data", {}).get("uses", 1)
+                max_uses = res_data.get("maxUses") or res_data.get("data", {}).get("maxUses", 5)
+                return True, f"Active for {email} ({uses} of {max_uses} keys used)"
             return False, res_data.get("message", "Invalid license key")
     except urllib.error.HTTPError as e:
         err_body = json.loads(e.read().decode("utf-8"))

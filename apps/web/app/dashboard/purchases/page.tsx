@@ -163,28 +163,44 @@ export default function PurchasesPage() {
                     </div>
 
                     {order.licenseKeys && order.licenseKeys.length > 0 && (
-                      <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        {order.licenseKeys.map((lk) => (
-                          <div
-                            key={lk.licenseKey}
-                            className="inline-flex items-center gap-1.5 bg-muted px-2.5 py-1 brutal-border text-xs font-mono font-bold"
-                          >
-                            <Key size={12} className="text-primary" />
-                            <span>{lk.licenseKey}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(lk.licenseKey);
-                                toast.success("License key copied to clipboard!");
-                              }}
-                              className="hover:text-primary p-0.5 ml-1"
-                              title="Copy License Key"
+                      <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                        {order.licenseKeys.map((lk) => {
+                          const uses = lk.uses ?? 0;
+                          const maxUses = lk.maxUses ?? 5;
+                          const isFull = uses >= maxUses;
+                          return (
+                            <div
+                              key={lk.licenseKey}
+                              className="inline-flex items-center gap-2 bg-muted/60 hover:bg-muted px-2.5 py-1 brutal-border text-xs font-mono font-bold transition-colors"
                             >
-                              <Copy size={12} />
-                            </button>
-                          </div>
-                        ))}
+                              <Key size={12} className="text-primary shrink-0" />
+                              <span>{lk.licenseKey}</span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-bold font-sans ${
+                                  isFull
+                                    ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25"
+                                    : uses > 0
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25"
+                                      : "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border border-zinc-500/25"
+                                }`}
+                              >
+                                {uses} of {maxUses} seats used
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(lk.licenseKey);
+                                  toast.success("License key copied to clipboard!");
+                                }}
+                                className="hover:text-primary p-0.5 ml-0.5 transition-colors"
+                                title="Copy License Key"
+                              >
+                                <Copy size={12} />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

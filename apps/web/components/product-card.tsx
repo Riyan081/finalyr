@@ -87,12 +87,12 @@ export default function ProductCard({ product, matchScore, matchReason }: Produc
             ) : (
               <div className="w-5 h-5 rounded-full bg-primary brutal-border flex items-center justify-center">
                 <span className="text-[8px] text-primary-foreground font-bold">
-                  {product.creator?.name?.charAt(0) ?? "?"}
+                  {product.creator?.name?.charAt(0)?.toUpperCase() || product.creator?.username?.charAt(0)?.toUpperCase() || "C"}
                 </span>
               </div>
             )}
             <span className="text-xs text-muted-foreground font-medium truncate">
-              {product.creator?.name ?? "Unknown"}
+              {product.creator?.name || product.creator?.username || "Creator"}
             </span>
           </div>
 

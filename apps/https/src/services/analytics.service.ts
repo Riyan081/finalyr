@@ -6,7 +6,16 @@ export const analyticsService = {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const [revenueAgg, totalSales, productCount, followerCount, withdrawableAgg, paidOutAgg] = await Promise.all([
+    const [
+      revenueAgg,
+      totalSales,
+      productCount,
+      followerCount,
+      totalCreatorRevenueAgg,
+      withdrawableAgg,
+      pendingPayoutAgg,
+      paidOutAgg,
+    ] = await Promise.all([
       prisma.order.aggregate({
         where: { creatorId, status: "completed" },
         _sum: { amountCents: true },
@@ -14,29 +23,51 @@ export const analyticsService = {
       prisma.order.count({ where: { creatorId, status: "completed" } }),
       prisma.product.count({ where: { creatorId, status: "published" } }),
       prisma.follower.count({ where: { creatorId } }),
+      // Total net creator earnings (after platform fees) across all completed orders
+      prisma.order.aggregate({
+        where: { creatorId, status: "completed" },
+        _sum: { creatorRevenueCents: true },
+      }),
       // Revenue from orders completed 30+ days ago (mature revenue)
       prisma.order.aggregate({
         where: { creatorId, status: "completed", createdAt: { lte: thirtyDaysAgo } },
         _sum: { creatorRevenueCents: true },
       }),
-      // Already paid out
+      // Pending payouts awaiting admin processing
+      prisma.payout.aggregate({
+        where: { creatorId, status: "pending" },
+        _sum: { amountCents: true },
+      }),
+      // Already paid or currently processing
       prisma.payout.aggregate({
         where: { creatorId, status: { in: ["completed", "processing"] } },
         _sum: { amountCents: true },
       }),
     ]);
 
+    const totalCreatorRevenue = Number(totalCreatorRevenueAgg._sum.creatorRevenueCents ?? 0);
     const matureRevenue = Number(withdrawableAgg._sum.creatorRevenueCents ?? 0);
+    const pendingPayout = Number(pendingPayoutAgg._sum.amountCents ?? 0);
     const alreadyPaid = Number(paidOutAgg._sum.amountCents ?? 0);
-    const withdrawable = Math.max(0, matureRevenue - alreadyPaid);
+
+    // Escrow revenue is net sales within the last 30 days still in fraud/chargeback holding
+    const escrowRevenue = Math.max(0, totalCreatorRevenue - matureRevenue);
+
+    // Withdrawable revenue is mature revenue minus already paid minus currently pending
+    const withdrawable = Math.max(0, matureRevenue - alreadyPaid - pendingPayout);
 
     return {
       totalRevenueCents: Number(revenueAgg._sum.amountCents ?? 0),
+      creatorNetRevenueCents: totalCreatorRevenue,
+      escrowRevenueCents: escrowRevenue,
+      alreadyPaidOutCents: alreadyPaid,
+      pendingPayoutCents: pendingPayout,
       totalSales,
       productCount,
       followerCount,
       withdrawableRevenueCents: withdrawable,
-      minimumWithdrawalCents: 10_000, // $100
+      minimumWithdrawalCents: 10_000, // ₹100 / $100 depending on currency
+      holdingWindowDays: 30,
     };
   },
 

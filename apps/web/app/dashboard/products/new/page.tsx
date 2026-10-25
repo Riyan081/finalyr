@@ -8,6 +8,7 @@ import { CATEGORIES, CATEGORY_LABELS } from "@/lib/mock-data";
 import { productsApi, fileUploadApi, variantsApi, type ProductFile, type ProductVariant, type GenerateCopyResponse } from "@/lib/api";
 import CreatorAIStudioModal from "@/components/creator-ai-studio-modal";
 import SoftwareLicenseSnippets from "@/components/software-license-snippets";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { toast } from "sonner";
 
 const PRODUCT_TYPES = [
@@ -38,6 +39,7 @@ export default function NewProductPage() {
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
+  const [descTab, setDescTab] = useState<"write" | "preview">("write");
   const [productType, setProductType] = useState<
     "digital" | "course" | "membership"
   >("digital");
@@ -366,17 +368,42 @@ export default function NewProductPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold mb-2">
-              Full Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your product in detail. Supports Markdown."
-              rows={6}
-              className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-              maxLength={50000}
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-bold">
+                Full Description <span className="text-xs font-normal text-muted-foreground">(Supports Markdown: **bold**, ### headings, - lists)</span>
+              </label>
+              <div className="flex items-center gap-1 text-xs font-bold border border-border p-0.5 bg-muted">
+                <button
+                  type="button"
+                  onClick={() => setDescTab("write")}
+                  className={`px-2.5 py-1 transition-colors ${descTab === "write" ? "bg-primary text-primary-foreground font-bold" : "hover:text-primary"}`}
+                >
+                  Write
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDescTab("preview")}
+                  className={`px-2.5 py-1 transition-colors ${descTab === "preview" ? "bg-primary text-primary-foreground font-bold" : "hover:text-primary"}`}
+                >
+                  Preview
+                </button>
+              </div>
+            </div>
+
+            {descTab === "write" ? (
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe your product in detail. Supports Markdown: **bold**, ### headings, - lists, etc."
+                rows={6}
+                className="w-full px-4 py-3 brutal-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                maxLength={50000}
+              />
+            ) : (
+              <div className="w-full min-h-[160px] p-4 brutal-border bg-card">
+                <MarkdownRenderer content={description} />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -687,7 +714,7 @@ export default function NewProductPage() {
       {createdProductId && (
         <div className="mt-8 space-y-6">
           <div className="brutal-card p-6 bg-digi-mint/20">
-            <p className="font-heading font-bold text-lg">? Product created! Now add your files.</p>
+            <p className="font-heading font-bold text-lg">🎉 Product created! Now add your files.</p>
             <p className="text-sm text-muted-foreground mt-1">Upload a thumbnail, downloadable files, and optional pricing variants.</p>
           </div>
 
@@ -700,9 +727,9 @@ export default function NewProductPage() {
               <div>
                 <input ref={thumbInputRef} type="file" accept="image/*" onChange={handleThumbnailSelect} className="hidden" />
                 <button type="button" onClick={() => thumbInputRef.current?.click()} disabled={uploadingThumb} className="brutal-btn bg-card text-sm flex items-center gap-2 disabled:opacity-60">
-                  {uploadingThumb ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}{uploadingThumb ? "Uploading�" : thumbnailUrl ? "Change" : "Upload Thumbnail"}
+                  {uploadingThumb ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}{uploadingThumb ? "Uploading..." : thumbnailUrl ? "Change" : "Upload Thumbnail"}
                 </button>
-                <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WebP. Recommended 1200�800px</p>
+                <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WebP. Recommended 1200x800px</p>
               </div>
             </div>
           </div>
@@ -723,7 +750,7 @@ export default function NewProductPage() {
             <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
             {uploadingFile && (<div className="w-full h-2 bg-muted brutal-border mb-3 overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${fileProgress}%` }} /></div>)}
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} className="brutal-btn bg-card text-sm flex items-center gap-2 disabled:opacity-60">
-              {uploadingFile ? <><Loader2 size={14} className="animate-spin" /> Uploading {fileProgress}%�</> : <><Upload size={14} /> Add File</>}
+              {uploadingFile ? <><Loader2 size={14} className="animate-spin" /> Uploading {fileProgress}%...</> : <><Upload size={14} /> Add File</>}
             </button>
           </div>
 
@@ -741,7 +768,7 @@ export default function NewProductPage() {
             </button>
           </div>
 
-          <button type="button" onClick={() => router.push("/dashboard/products")} className="brutal-btn bg-primary text-primary-foreground font-bold w-full py-3 text-center">Done � View My Products</button>
+          <button type="button" onClick={() => router.push("/dashboard/products")} className="brutal-btn bg-primary text-primary-foreground font-bold w-full py-3 text-center">Done — View My Products</button>
         </div>
       )}
 

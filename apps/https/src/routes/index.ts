@@ -18,6 +18,7 @@ import licenseRoutes from "./license.routes.js";
 import membershipRoutes from "./membership.routes.js";
 import drmRoutes from "./drm.routes.js";
 import aiRoutes from "./ai.routes.js";
+import payoutRoutes from "./payout.routes.js";
 
 const router: ExpressRouter = Router();
 
@@ -60,5 +61,8 @@ router.use("/api/ai", aiRoutes);
 
 // ─── Checkout + Payments ─────────────────────────────────────────
 router.use("/api/checkout", checkoutRoutes);
+
+// ─── Creator Payouts & Escrow ────────────────────────────────────
+router.use("/api/payouts", payoutRoutes);
 
 export default router;

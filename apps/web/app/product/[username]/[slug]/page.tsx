@@ -10,6 +10,7 @@ import {
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import SmartRecommendations from "@/components/smart-recommendations";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { usePublicProduct, useMembershipAccess } from "@/hooks/api-hooks";
 import { CATEGORY_COLORS } from "@/lib/mock-data";
 import {
@@ -165,6 +166,13 @@ export default function ProductDetailPage() {
 
   const handleBuy = async () => {
     if (!product) return;
+    if (!session?.user) {
+      toast.info("Please sign in or create an account to purchase this product", {
+        description: "An account is required so you can access your purchases and downloads.",
+      });
+      router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
     setCheckingOut(true);
 
     try {
@@ -335,9 +343,7 @@ export default function ProductDetailPage() {
             <div className="brutal-card p-8">
               <h2 className="font-heading font-bold text-xl mb-4">Description</h2>
               {product.summary && <p className="font-semibold text-foreground mb-4 leading-relaxed">{product.summary}</p>}
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                {product.description || "No description provided."}
-              </p>
+              <MarkdownRenderer content={product.description} />
               {product.fileCount > 0 && (
                 <div className="mt-6 p-4 bg-muted/50 brutal-border">
                   <p className="text-sm font-semibold">📦 {product.fileCount} file{product.fileCount !== 1 ? "s" : ""} included</p>
@@ -686,10 +692,18 @@ export default function ProductDetailPage() {
                     disabled={checkingOut}
                     className="w-full brutal-btn bg-primary text-primary-foreground text-lg font-bold py-4 flex items-center justify-center gap-2 mb-3 disabled:opacity-70"
                   >
+                    {checkingOut ? (
+                      <Loader2 size={20} className="animate-spin" />
+                    ) : !session?.user ? (
+                      <Lock size={20} />
+                    ) : (
+                      <ShoppingCart size={20} />
+                    )}
                     {checkingOut
-                      ? <Loader2 size={20} className="animate-spin" />
-                      : <ShoppingCart size={20} />}
-                    {checkingOut ? "Processing…" : (product.callToAction || "Buy Now")}
+                      ? "Processing…"
+                      : !session?.user
+                        ? "Sign in to Buy"
+                        : (product.callToAction || "Buy Now")}
                   </button>
                 )}
 

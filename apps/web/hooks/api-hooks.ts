@@ -32,6 +32,9 @@ import {
   type CreatorLicenseKey,
   type MembershipItem,
   type CreatorMembersData,
+  payoutsApi,
+  type PayoutStatusResponse,
+  type PayoutRecord,
 } from "@/lib/api";
 
 // ─── Generic async state ─────────────────────────────────────────────────────
@@ -275,4 +278,15 @@ export function useMembershipAccess(productId: string) {
 export function useCreatorLicenseKeys() {
   return useAsync<CreatorLicenseKey[]>(() => licenseApi.getCreatorKeys(), []);
 }
+
+// ─── Creator Payouts & 30-Day Escrow ──────────────────────────────────────────
+
+export function usePayoutStatus() {
+  return useAsync<PayoutStatusResponse>(() => payoutsApi.getStatus(), []);
+}
+
+export function usePayoutHistory() {
+  return useAsync<PayoutRecord[]>(() => payoutsApi.getHistory(), []);
+}
+
 

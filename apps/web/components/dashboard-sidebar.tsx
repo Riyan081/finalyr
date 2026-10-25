@@ -17,6 +17,7 @@ import {
   Sparkles,
   ExternalLink,
   Repeat,
+  Wallet,
 } from "lucide-react";
 import { authClient } from "@repo/auth/client";
 import { useMe } from "@/hooks/api-hooks";
@@ -31,6 +32,7 @@ const CREATOR_LINKS = [
   { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
   { icon: ShoppingCart, label: "Sales", href: "/dashboard/orders" },
   { icon: Tag, label: "Discounts", href: "/dashboard/discounts" },
+  { icon: Wallet, label: "Payouts & Escrow", href: "/dashboard/payouts" },
 ];
 
 const BUYER_LINKS = [

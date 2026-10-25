@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import CreatorAIStudioModal from "@/components/creator-ai-studio-modal";
 import SoftwareLicenseSnippets from "@/components/software-license-snippets";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { toast } from "sonner";
 
 const PRODUCT_TYPES = [
@@ -42,7 +43,8 @@ export default function EditProductPage() {
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
-  const [productType, setProductType] = useState<"digital" | "course" | "membership">("digital");
+  const [descTab, setDescTab] = useState<"write" | "preview">("write");
+  const [productType, setProductType] = useState<"digital" | "course" | "membership" | "bundle">("digital");
   const [recurrence, setRecurrence] = useState<"monthly" | "quarterly" | "yearly" | "">("");
   const [category, setCategory] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -306,9 +308,41 @@ export default function EditProductPage() {
                   className="w-full px-4 py-3 brutal-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
-                <label className="block text-sm font-bold mb-2">Description</label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={6} placeholder="Full product description..."
-                  className="w-full px-4 py-3 brutal-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold">
+                    Description <span className="text-xs font-normal text-muted-foreground">(Supports Markdown: **bold**, ### headings, - lists)</span>
+                  </label>
+                  <div className="flex items-center gap-1 text-xs font-bold border border-border p-0.5 bg-muted">
+                    <button
+                      type="button"
+                      onClick={() => setDescTab("write")}
+                      className={`px-2.5 py-1 transition-colors ${descTab === "write" ? "bg-primary text-primary-foreground font-bold" : "hover:text-primary"}`}
+                    >
+                      Write
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDescTab("preview")}
+                      className={`px-2.5 py-1 transition-colors ${descTab === "preview" ? "bg-primary text-primary-foreground font-bold" : "hover:text-primary"}`}
+                    >
+                      Preview
+                    </button>
+                  </div>
+                </div>
+
+                {descTab === "write" ? (
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={6}
+                    placeholder="Full product description... Supports Markdown: **bold**, ### headings, - lists, etc."
+                    className="w-full px-4 py-3 brutal-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                  />
+                ) : (
+                  <div className="w-full min-h-[160px] p-4 brutal-border bg-card">
+                    <MarkdownRenderer content={description} />
+                  </div>
+                )}
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
